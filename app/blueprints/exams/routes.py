@@ -5,6 +5,10 @@ import pandas as pd
 from flask import render_template, request, redirect, url_for, flash, send_file
 from flask_login import login_required, current_user
 from app.extensions import db, socketio
+from app.realtime import events
+from app.realtime.manager import session_manager
+from app.modes import registry
+from app.services.exam_content import normalize_room_code
 from app.models import (
     User, Bank, QuestionOption, Exam, ExamQuestion, 
     ExamSession, ExamAttempt, StudentAnswer
@@ -84,7 +88,7 @@ def create_session(exam_id):
     if exam.instructor_id != current_user.id:
         return 'Acceso denegado', 403
 
-    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    code = normalize_room_code(''.join(random.choices(string.ascii_uppercase + string.digits, k=6)))
     expected_students = request.form.get('expected_students', type=int, default=0)
     new_session = ExamSession(exam_id=exam_id, session_code=code, status='waiting', expected_students=max(expected_students or 0, 0))
     db.session.add(new_session)
@@ -401,5 +405,8 @@ def start_session_ajax(session_id):
 
     session_obj.status = 'in_progress'
     db.session.commit()
+    realtime_session = session_manager.get_or_create_by_db_session(session_obj)
+    realtime_session.status = 'in_progress'
+    registry.get(realtime_session.mode, socketio, session_manager).on_start(realtime_session)
 
     return {'success': True, 'status': session_obj.status}
