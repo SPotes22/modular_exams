@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}Panel de Control{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Panel del Instructor</h2>
+
+<div class="row">
+    <!-- Crear Banco -->
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">1. Crear Banco de Preguntas</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('questions.create_bank') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Banco</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-secondary w-100">Crear Banco</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crear Examen Dinámico -->
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">2. Crear Examen Aleatorio</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('exams.create_advanced_exam') }}" method="POST">
+                    <div class="mb-2">
+                        <label class="form-label">Título del Examen</label>
+                        <input type="text" name="title" class="form-control" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Banco de Origen</label>
+                        <select name="bank_id" class="form-select" required>
+                            {% for bank in banks %}
+                                <option value="{{ bank.id }}">{{ bank.name }} ({{ bank.questions|length }} preg.)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col">
+                            <label class="form-label">Preguntas</label>
+                            <input type="number" name="num_questions" class="form-control" value="5" min="1">
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Minutos</label>
+                            <input type="number" name="duration" class="form-control" value="30" min="1">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-info text-white w-100">Generar Examen</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lanzar Sala -->
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">3. Iniciar Nueva Sala</h5>
+            </div>
+            <div class="card-body">
+                {% if exams %}
+                    {% for exam in exams %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <div>
+                                <strong>{{ exam.title }}</strong><br>
+                                <small class="text-muted">{{ exam.duration_minutes }} min</small>
+                            </div>
+                            <form action="{{ url_for('exams.create_session', exam_id=exam.id) }}" method="POST">
+                                <button type="submit" class="btn btn-sm btn-success">Abrir Sala</button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">Primero crea un examen para poder iniciar salas.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

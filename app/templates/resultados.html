@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Resultados del Examen{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-9">
+        <!-- Tarjeta del Puntaje Final -->
+        <div class="card shadow mb-4">
+            <div class="card-header text-center {% if attempt.score >= attempt.session.exam.passing_score %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <h3 class="mb-0">Resumen de Evaluación</h3>
+            </div>
+            <div class="card-body text-center py-4">
+                <h5 class="text-muted mb-2">Examen: {{ attempt.session.exam.title }}</h5>
+                <h1 class="display-3 fw-bold mb-3">{{ attempt.score }}%</h1>
+                
+                {% if attempt.score >= attempt.session.exam.passing_score %}
+                    <span class="badge bg-success fs-5 px-4 py-2">¡Aprobado! 🎉</span>
+                {% else %}
+                    <span class="badge bg-danger fs-5 px-4 py-2">Reprobado ❌</span>
+                {% endif %}
+
+                <p class="text-muted mt-3 mb-0">Entregado el: {{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}</p>
+            </div>
+        </div>
+
+        <!-- Desglose de Respuestas y Retroalimentación -->
+        <h4 class="mb-3">Desglose de Preguntas</h4>
+        {% for ans in answers %}
+            <div class="card mb-3 border-start border-4 {% if ans.is_correct %}border-success{% else %}border-danger{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Pregunta {{ loop.index }}</h5>
+                        {% if ans.is_correct %}
+                            <span class="badge bg-success">Correcta (+1)</span>
+                        {% else %}
+                            <span class="badge bg-danger">Incorrecta (0)</span>
+                        {% endif %}
+                    </div>
+                    
+                    <p class="fw-semibold mb-2">{{ ans.question.statement }}</p>
+
+                    <div class="p-2 rounded mb-2 bg-light">
+                        <small class="text-muted d-block">Tu respuesta:</small>
+                        <span>
+                            {% if ans.selected_option %}
+                                {{ ans.selected_option.option_text }}
+                            {% else %}
+                                <em>Respuesta enviada</em>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% if ans.question.feedback_text %}
+                        <div class="alert alert-info py-2 px-3 mb-0 mt-2">
+                            <small class="fw-bold d-block">💡 Retroalimentación:</small>
+                            <small>{{ ans.question.feedback_text }}</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+
+        <div class="text-center mt-4 mb-5">
+            <a href="{{ url_for('auth.student_join_exam') }}" class="btn btn-primary btn-lg">Volver al Inicio</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

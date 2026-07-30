@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Reportes de Exámenes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Reportes de Exámenes Finalizados</h2>
+    <a href="{{ url_for('exams.instructor_dashboard') }}" class="btn btn-outline-secondary">Volver al Panel</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Código Sala</th>
+                        <th>Examen</th>
+                        <th>Fecha de Creación</th>
+                        <th>Estudiantes</th>
+                        <th>Acción Reporte</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session_item in sessions %}
+                    <tr>
+                        <td><span class="badge bg-primary fs-6">{{ session_item.session_code }}</span></td>
+                        <td><strong>{{ session_item.exam.title }}</strong></td>
+                        <td>{{ session_item.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <span class="badge bg-info text-dark">
+                                {{ session_item.attempts|length }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('exams.download_session_results_excel', session_id=session_item.id) }}" 
+                               class="btn btn-success btn-sm">
+                                📊 Descargar Excel (.xlsx)
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            No hay salas finalizadas con reportes disponibles aún.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

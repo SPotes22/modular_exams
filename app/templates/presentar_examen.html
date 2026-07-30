@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}{{ exam.title }}{% endblock %}
+
+{% block content %}
+<!-- PANTALLA / MODAL DE ESPERA -->
+<div id="waiting-screen" class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-90 d-flex flex-column justify-content-center align-items-center text-white" style="z-index: 9999; {% if session.status == 'in_progress' %}display: none !important;{% endif %}">
+    <div class="spinner-border text-primary mb-3" style="width: 4rem; height: 4rem;" role="status"></div>
+    <h2 class="fw-bold">Esperando al profesor...</h2>
+    <p class="text-light">Estás conectado a la sala <strong class="text-warning">{{ session.session_code }}</strong>. El examen comenzará en breve.</p>
+</div>
+
+<!-- CONTENEDOR DEL EXAMEN -->
+<div class="container my-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">{{ exam.title }}</h4>
+            <div>
+                <span>Estudiante: <strong>{{ current_user.username }}</strong></span> |
+                <span>Sala: <strong>{{ session.session_code }}</strong></span>
+            </div>
+        </div>
+        
+        <!-- Barra de Progreso -->
+        <div class="card-body bg-light border-bottom py-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="fw-bold" id="question-indicator">Pregunta 1 de {{ questions_data|length }}</small>
+                <div class="progress w-50" style="height: 10px;">
+                    <div id="exam-progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <form action="{{ url_for('exams.submit_exam', session_id=session.id) }}" method="POST" id="exam-form">
+                {% for item in questions_data %}
+                    {% set q = item.question %}
+                    {% set q_index = loop.index0 %}
+                    
+                    <div class="question-step" id="step-{{ q_index }}" style="{% if q_index != 0 %}display: none;{% endif %}">
+                        <div class="mb-4">
+                            <span class="badge bg-secondary mb-2">Pregunta {{ loop.index }}</span>
+                            <h4 class="fw-normal">{{ q.statement }}</h4>
+                            
+                            {% if q.image_url %}
+                                <img src="{{ q.image_url }}" class="img-fluid rounded mb-3" style="max-height: 250px;">
+                            {% endif %}
+                        </div>
+
+                        <!-- Opción Múltiple / Verdadero-Falso -->
+                        {% if item.type in ['multiple_choice', 'true_false', 'video'] %}
+                            {% for opt in item.options %}
+                                <div class="form-check card mb-2 p-3 border">
+                                    <input class="form-check-input ms-1" type="radio" name="question_{{ q.id }}" value="{{ opt.id }}" id="opt_{{ opt.id }}">
+                                    <label class="form-check-label ms-2 w-100" for="opt_{{ opt.id }}">{{ opt.option_text }}</label>
+                                </div>
+                            {% endfor %}
+
+                        <!-- Emparejamiento -->
+                        {% elif item.type == 'matching' %}
+                            {% for pair in item.pairs %}
+                                <div class="row align-items-center mb-3">
+                                    <div class="col-md-5"><strong>{{ pair.left_text }}</strong></div>
+                                    <div class="col-md-7">
+                                        <select name="question_{{ q.id }}_pair_{{ pair.id }}" class="form-select">
+                                            <option value="">-- Selecciona coincidencia --</option>
+                                            {% for right in item.right_options %}
+                                                <option value="{{ right }}">{{ right }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            {% endfor %}
+
+                        <!-- Ordenamiento -->
+                        {% elif item.type == 'ordering' %}
+                            <p class="text-muted small mb-3">Asigna el orden correcto (1, 2, 3...):</p>
+                            {% for ord_item in item.order_list %}
+                                <div class="row align-items-center mb-2">
+                                    <div class="col-md-9">{{ ord_item.item_text }}</div>
+                                    <div class="col-md-3">
+                                        <input type="number" name="order_{{ q.id }}_{{ ord_item.id }}" class="form-control" min="1" max="{{ item.order_list|length }}">
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <!-- NAVEGACIÓN PASO A PASO -->
+                <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+                    <button type="button" class="btn btn-outline-secondary" id="btn-prev" onclick="prevQuestion()" disabled>Anterior</button>
+                    <button type="button" class="btn btn-primary" id="btn-next" onclick="nextQuestion()">Siguiente</button>
+                    <button type="submit" class="btn btn-success btn-lg d-none" id="btn-submit">Enviar Examen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const sessionId = {{ session.id }};
+    const totalQuestions = {{ questions_data|length }};
+    let currentStep = 0;
+
+    function hideWaitingOverlay() {
+        const waitingScreen = document.getElementById('waiting-screen');
+        if (waitingScreen) {
+            waitingScreen.style.setProperty('display', 'none', 'important');
+        }
+    }
+
+    // Consulta periódica al endpoint JSON con el session_id real
+    function checkExamStatus() {
+        fetch(`/session/status/${sessionId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'in_progress') {
+                    hideWaitingOverlay();
+                    clearInterval(statusInterval);
+                }
+            })
+            .catch(err => console.error("Error al consultar el estado del examen:", err));
+    }
+
+    {% if session.status == 'in_progress' %}
+        hideWaitingOverlay();
+    {% else %}
+        const statusInterval = setInterval(checkExamStatus, 1500);
+        checkExamStatus();
+    {% endif %}
+
+    // Navegación entre preguntas (se mantiene exactamente igual a tu código)
+    function updateStepView() {
+        if (totalQuestions === 0) return;
+
+        document.querySelectorAll('.question-step').forEach((el, idx) => {
+            el.style.display = (idx === currentStep) ? 'block' : 'none';
+        });
+
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const btnSubmit = document.getElementById('btn-submit');
+
+        if (btnPrev) btnPrev.disabled = (currentStep === 0);
+        
+        if (currentStep === totalQuestions - 1) {
+            if (btnNext) btnNext.classList.add('d-none');
+            if (btnSubmit) btnSubmit.classList.remove('d-none');
+        } else {
+            if (btnNext) btnNext.classList.remove('d-none');
+            if (btnSubmit) btnSubmit.classList.add('d-none');
+        }
+
+        const indicator = document.getElementById('question-indicator');
+        if (indicator) {
+            indicator.innerText = `Pregunta ${currentStep + 1} de ${totalQuestions}`;
+        }
+    }
+
+    function nextQuestion() {
+        if (currentStep < totalQuestions - 1) {
+            currentStep++;
+            updateStepView();
+        }
+    }
+
+    function prevQuestion() {
+        if (currentStep > 0) {
+            currentStep--;
+            updateStepView();
+        }
+    }
+
+    updateStepView();
+</script>
+{% endblock %}

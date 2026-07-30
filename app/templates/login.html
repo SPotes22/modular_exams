@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Iniciar Sesión - Profesor{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <h4>Acceso a Profesores</h4>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('auth.login') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Correo Electrónico</label>
+                        <input type="email" name="email" class="form-control" placeholder="profesor@capacitacion.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <p class="mb-0">¿Eres estudiante? <a href="{{ url_for('auth.student_join_exam') }}">Ingresa a un examen aquí</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

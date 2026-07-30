@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Sala {{ session.session_code }}{% endblock %}
+
+{% block content %}
+<div class="card mb-4 border-primary">
+    <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+            <h3>Sala: <strong class="text-primary" id="room-code">{{ session.session_code }}</strong></h3>
+            <p class="mb-0 text-muted">Examen: {{ session.exam.title }} | Estado: <span class="badge bg-warning" id="session-status">{{ session.status }}</span></p>
+        </div>
+        <div>
+            <button id="btn-start" class="btn btn-success btn-lg" onclick="startExam()">Iniciar Examen para Todos</button>
+            <form action="{{ url_for('exams.close_session', session_id=session.id) }}" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-danger btn-lg">Finalizar Sala</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h4>Estudiantes Conectados / Entregas</h4>
+        <ul class="list-group" id="students-list">
+            {% for attempt in attempts %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ attempt.student.username }}
+                    <span class="badge bg-success">Completado: {{ attempt.score }}%</span>
+                </li>
+            {% else %}
+                <li class="list-group-item text-muted" id="no-students">Esperando a que se unan estudiantes...</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="col-md-4">
+        <h4>Alertas Anti-Cheat</h4>
+        <div class="border rounded p-3 bg-white" id="alerts-log" style="height: 300px; overflow-y: auto;">
+            <p class="text-muted small">Sin incidencias reportadas.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const sessionId = {{ session.id }};
+
+    function startExam() {
+        fetch(`/instructor/session/start-ajax/${sessionId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                console.log("Sesión iniciada.");
+            }
+        })
+        .catch(err => console.error("Error iniciando el examen:", err));
+    }
+
+    // Vincular al botón verde del lobby
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnStart = document.getElementById('btn-start-exam'); 
+        if (btnStart) {
+            btnStart.addEventListener('click', startExam);
+        }
+    });
+
+    // Actualizar alumnos en tiempo real en el lobby
+    function fetchLobbyData() {
+        fetch(`/session/status/${sessionId}`)
+            .then(res => res.json())
+            .then(data => {
+                const studentList = document.getElementById('students-list');
+                if (studentList && data.students) {
+                    studentList.innerHTML = '';
+                    if (data.students.length === 0) {
+                        studentList.innerHTML = '<li class="list-group-item text-muted">Esperando a que se unan estudiantes...</li>';
+                    } else {
+                        data.students.forEach(student => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item';
+                            li.innerText = student;
+                            studentList.appendChild(li);
+                        });
+                    }
+                }
+            })
+            .catch(err => console.error("Error en lobby:", err));
+    }
+
+    setInterval(fetchLobbyData, 2000);
+    fetchLobbyData();
+</script>
+{% endblock %}

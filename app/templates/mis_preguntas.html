@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Banco de Preguntas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Banco de Preguntas e Importación</h2>
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importExcelModal">
+        📊 Importar desde Excel / CSV
+    </button>
+</div>
+
+<!-- Modal Importar Excel -->
+<div class="modal fade" id="importExcelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ url_for('questions.import_questions_excel') }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title">Importación Masiva</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Selecciona el Banco Destino</label>
+                        <select name="bank_id" class="form-select" required>
+                            {% for bank in banks %}
+                                <option value="{{ bank.id }}">{{ bank.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Archivo (.xlsx, .csv)</label>
+                        <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls, .csv" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Cargar Preguntas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Tipo</th>
+                    <th>Enunciado</th>
+                    <th>Categoría</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in questions %}
+                <tr>
+                    <td>{{ q.id }}</td>
+                    <td><span class="badge bg-secondary">{{ q.question_type }}</span></td>
+                    <td>{{ q.statement }}</td>
+                    <td>{{ q.category }}</td>
+                    <td>
+                        <form action="{{ url_for('questions.delete_question', question_id=q.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar pregunta?')">X</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No hay preguntas registradas en los bancos.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
