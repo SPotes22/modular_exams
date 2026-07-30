@@ -38,12 +38,6 @@ def student_join_exam():
         student_name = request.form.get('student_name', '').strip()
         code = request.form.get('session_code', '').strip().upper()
         
-        # Buscar la sesión activa en la BD
-        exam_session = ExamSession.query.filter_by(
-            session_code=code, 
-            status='waiting' # O status != 'closed'
-        ).first()
-
         if not student_name or not code:
             flash('Debes ingresar tu nombre y un código de examen válido.', 'warning')
             return redirect(url_for('auth.student_join_exam'))
@@ -62,6 +56,6 @@ def student_join_exam():
         db.session.commit()
         login_user(user)
 
-        return redirect(url_for('exams.presentar_examen', session_id=exam_session.id))
+        return redirect(url_for('exams.presentar_examen', session_id=session_obj.id))
 
     return render_template('student_join.html')

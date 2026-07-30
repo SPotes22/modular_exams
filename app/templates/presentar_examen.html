@@ -36,7 +36,7 @@
                     {% set q = item.question %}
                     {% set q_index = loop.index0 %}
                     
-                    <div class="question-step" id="step-{{ q_index }}" style="{% if q_index != 0 %}display: none;{% endif %}">
+                    <div class="question-step" id="step-{{ q_index }}" data-question-id="{{ q.id }}" style="{% if q_index != 0 %}display: none;{% endif %}">
                         <div class="mb-4">
                             <span class="badge bg-secondary mb-2">Pregunta {{ loop.index }}</span>
                             <h4 class="fw-normal">{{ q.statement }}</h4>
@@ -100,9 +100,17 @@
 
 {% block scripts %}
 <script>
+    const socket = io();
     const sessionId = {{ session.id }};
+    const roomCode = "{{ session.session_code }}".trim().toUpperCase();
+    const studentId = {{ current_user.id }};
     const totalQuestions = {{ questions_data|length }};
+    const examMode = "{{ exam.exam_mode }}";
     let currentStep = 0;
+
+    socket.on('connect', () => {
+        socket.emit('student_join', { room_code: roomCode, student_id: studentId, username: "{{ current_user.username }}" });
+    });
 
     function hideWaitingOverlay() {
         const waitingScreen = document.getElementById('waiting-screen');
@@ -110,6 +118,22 @@
             waitingScreen.style.setProperty('display', 'none', 'important');
         }
     }
+
+    socket.on('exam_started', data => hideWaitingOverlay());
+    socket.on('session_state', data => {
+        if (data.status === 'in_progress') hideWaitingOverlay();
+        if ((data.mode === 'teacher_paced' || data.mode === 'instant_feedback') && data.question) showQuestionById(data.question.id);
+        if (data.can_submit) document.getElementById('btn-submit').classList.remove('d-none');
+    });
+    socket.on('feedback', data => {
+        alert(`${data.correct ? 'Correcta' : 'Incorrecta'}: ${data.feedback}`);
+        if (data.next_question) showQuestionById(data.next_question.id);
+        if (data.finished) document.getElementById('btn-submit').classList.remove('d-none');
+    });
+    socket.on('next_question', data => {
+        if (data.question) showQuestionById(data.question.id);
+    });
+    socket.on('exam_error', data => alert(data.message));
 
     // Consulta periódica al endpoint JSON con el session_id real
     function checkExamStatus() {
@@ -132,6 +156,28 @@
     {% endif %}
 
     // Navegación entre preguntas (se mantiene exactamente igual a tu código)
+    function showQuestionById(questionId) {
+        const steps = Array.from(document.querySelectorAll('.question-step'));
+        const idx = steps.findIndex(el => Number(el.dataset.questionId) === Number(questionId));
+        if (idx >= 0) { currentStep = idx; updateStepView(); }
+    }
+
+    function collectAnswer(questionId) {
+        const checked = document.querySelector(`input[name="question_${questionId}"]:checked`);
+        return { selected_option_id: checked ? Number(checked.value) : null };
+    }
+
+    function submitRealtimeAnswer() {
+        const step = document.querySelectorAll('.question-step')[currentStep];
+        if (!step) return;
+        const questionId = Number(step.dataset.questionId);
+        socket.emit('answer_submitted', { room_code: roomCode, student_id: studentId, question_id: questionId, answer: collectAnswer(questionId) });
+    }
+
+    document.addEventListener('change', event => {
+        if (event.target.matches('input[type=radio], select, input[type=number]')) submitRealtimeAnswer();
+    });
+
     function updateStepView() {
         if (totalQuestions === 0) return;
 
@@ -143,13 +189,13 @@
         const btnNext = document.getElementById('btn-next');
         const btnSubmit = document.getElementById('btn-submit');
 
-        if (btnPrev) btnPrev.disabled = (currentStep === 0);
+        if (btnPrev) btnPrev.disabled = (currentStep === 0 || examMode === 'teacher_paced' || examMode === 'instant_feedback');
         
         if (currentStep === totalQuestions - 1) {
             if (btnNext) btnNext.classList.add('d-none');
             if (btnSubmit) btnSubmit.classList.remove('d-none');
         } else {
-            if (btnNext) btnNext.classList.remove('d-none');
+            if (btnNext) btnNext.classList.toggle('d-none', examMode === 'teacher_paced' || examMode === 'instant_feedback');
             if (btnSubmit) btnSubmit.classList.add('d-none');
         }
 

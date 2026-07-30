@@ -87,6 +87,7 @@ def create_app():
     from app.blueprints.questions import questions_bp
     from app.blueprints.exams import exams_bp
     from app.blueprints.media import media_bp
+    from app.realtime import sockets  # noqa: F401
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(questions_bp)

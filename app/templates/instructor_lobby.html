@@ -10,6 +10,7 @@
         </div>
         <div>
             <button id="btn-start" class="btn btn-success btn-lg" onclick="startExam()">Iniciar Examen para Todos</button>
+            <button id="btn-next-question" class="btn btn-primary btn-lg d-none" onclick="nextTeacherQuestion()">Siguiente pregunta</button>
             <form action="{{ url_for('exams.close_session', session_id=session.id) }}" method="POST" class="d-inline">
                 <button type="submit" class="btn btn-danger btn-lg">Finalizar Sala</button>
             </form>
@@ -42,54 +43,55 @@
 
 {% block scripts %}
 <script>
+    const socket = io();
     const sessionId = {{ session.id }};
+    const roomCode = "{{ session.session_code }}".trim().toUpperCase();
 
-    function startExam() {
-        fetch(`/instructor/session/start-ajax/${sessionId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                console.log("Sesión iniciada.");
-            }
-        })
-        .catch(err => console.error("Error iniciando el examen:", err));
-    }
-
-    // Vincular al botón verde del lobby
-    document.addEventListener('DOMContentLoaded', () => {
-        const btnStart = document.getElementById('btn-start-exam'); 
-        if (btnStart) {
-            btnStart.addEventListener('click', startExam);
-        }
+    socket.on('connect', () => {
+        socket.emit('teacher_join', { room_code: roomCode });
     });
 
-    // Actualizar alumnos en tiempo real en el lobby
-    function fetchLobbyData() {
-        fetch(`/session/status/${sessionId}`)
-            .then(res => res.json())
-            .then(data => {
-                const studentList = document.getElementById('students-list');
-                if (studentList && data.students) {
-                    studentList.innerHTML = '';
-                    if (data.students.length === 0) {
-                        studentList.innerHTML = '<li class="list-group-item text-muted">Esperando a que se unan estudiantes...</li>';
-                    } else {
-                        data.students.forEach(student => {
-                            const li = document.createElement('li');
-                            li.className = 'list-group-item';
-                            li.innerText = student;
-                            studentList.appendChild(li);
-                        });
-                    }
-                }
-            })
-            .catch(err => console.error("Error en lobby:", err));
+    function renderStudents(students) {
+        const studentList = document.getElementById('students-list');
+        studentList.innerHTML = '';
+        if (!students || students.length === 0) {
+            studentList.innerHTML = '<li class="list-group-item text-muted">Esperando a que se unan estudiantes...</li>';
+            return;
+        }
+        students.forEach(student => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.innerText = student.username;
+            const badge = document.createElement('span');
+            badge.className = `badge ${student.connected ? 'bg-success' : 'bg-secondary'}`;
+            badge.innerText = student.connected ? 'Conectado' : 'Desconectado';
+            li.appendChild(badge);
+            studentList.appendChild(li);
+        });
     }
 
-    setInterval(fetchLobbyData, 2000);
-    fetchLobbyData();
+    function startExam() {
+        fetch(`/instructor/session/start-ajax/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+            .catch(err => console.error("Error iniciando el examen:", err));
+    }
+
+    function nextTeacherQuestion() {
+        socket.emit('next_question', { room_code: roomCode });
+    }
+
+    socket.on('students_updated', data => renderStudents(data.students));
+    socket.on('exam_started', data => {
+        document.getElementById('session-status').innerText = data.status || 'in_progress';
+    });
+    socket.on('teacher_can_continue', () => {
+        document.getElementById('btn-next-question').classList.remove('d-none');
+    });
+    socket.on('next_question', () => {
+        document.getElementById('btn-next-question').classList.add('d-none');
+    });
+    socket.on('cheat_warning', data => {
+        const log = document.getElementById('alerts-log');
+        log.innerHTML += `<p><strong>${data.username}</strong>: ${data.reason}</p>`;
+    });
 </script>
 {% endblock %}
