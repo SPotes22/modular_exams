@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}{{ learning.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header de Progreso del Estudiante -->
+    <div class="card shadow-sm mb-4 border-0 rounded-3 bg-white">
+        <div class="card-body py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <h4 class="fw-bold mb-1 text-primary"><i class="bi bi-book-half me-2"></i>{{ learning.nombre }}</h4>
+                <p class="text-muted small mb-0">{{ learning.descripcion or 'Capacitación interactiva.' }}</p>
+            </div>
+
+            <div class="d-flex align-items-center gap-4">
+                <div class="text-center">
+                    <small class="text-muted d-block fw-bold">Tiempo Invertido</small>
+                    <span class="badge bg-light text-dark border px-3 py-2 fs-6" id="timeSpentBadge">
+                        <i class="bi bi-stopwatch text-primary me-1"></i><span id="timerText">0m 0s</span>
+                    </span>
+                </div>
+
+                <div class="text-center">
+                    <small class="text-muted d-block fw-bold">Puntaje Obtenido</small>
+                    <span class="badge bg-warning text-dark px-3 py-2 fs-6">
+                        <i class="bi bi-star-fill me-1"></i><span id="scoreText">{{ "%.1f"|format(progress.score) if progress else 0.0 }} Pts</span>
+                    </span>
+                </div>
+
+                <div style="min-width: 180px;">
+                    <div class="d-flex justify-content-between small fw-bold mb-1">
+                        <span>Progreso</span>
+                        <span id="progressPercentText">{{ "%.1f"|format(progress.progress_percent) if progress else 0.0 }}%</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: {{ progress.progress_percent if progress else 0 }}%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Sidebar Módulos y Lecciones Estudiante -->
+        <div class="col-lg-3">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="bi bi-list-nested me-2"></i>Contenido del Curso
+                </div>
+                <div class="accordion accordion-flush" id="studentModulesAccordion">
+                {% for module in learning.modules %}
+  {% set module_loop = loop %}  {# Guardamos el contexto del bucle padre #}
+  
+  {% for lesson in module.lessons %}
+    <button type="button" 
+            class="list-group-item list-group-item-action py-2 px-3 small student-lesson-btn {% if loop.first and module_loop.first %}active{% endif %}"
+            data-lesson-id="{{ lesson.id }}">
+      {{ lesson.title }}
+    </button>
+  {% endfor %}
+{% endfor %}                 
+		                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Visor Principal de Bloques -->
+        <div class="col-lg-9">
+            <div class="card shadow-sm border-0 rounded-3 min-vh-75">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0 text-dark" id="studentLessonTitle">Cargando Lección...</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" id="btnPrevLesson" onclick="navigateLesson(-1)"><i class="bi bi-chevron-left me-1"></i>Anterior</button>
+                        <button class="btn btn-primary" id="btnNextLesson" onclick="navigateLesson(1)">Siguiente<i class="bi bi-chevron-right ms-1"></i></button>
+                    </div>
+                </div>
+
+                <div class="card-body p-4" id="studentBlocksContainer">
+                    <!-- Se renderiza mediante JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.LEARNING_ID = {{ learning.id }};
+    window.CURRENT_USER_ID = {{ current_user.id }};
+    window.LESSON_BLOCKS_MAP = {
+        {% for module in learning.modules %}
+  {% set module_loop = loop %}  {# <-- Agrega esta línea #}
+  {% for lesson in module.lessons %}
+    {
+      "id": {{ lesson.id }},
+      "title": "{{ lesson.title }}"
+    }{% if not (loop.last and module_loop.last) %},{% endif %}  {# <-- Cambia loop.parent por module_loop #}
+  {% endfor %}
+{% endfor %}
+    };
+    window.INITIAL_LESSON_ID = {% if progress and progress.current_lesson_id %}{{ progress.current_lesson_id }}{% elif learning.modules and learning.modules[0].lessons %}{{ learning.modules[0].lessons[0].id }}{% else %}null{% endif %};
+    window.INITIAL_TIME_SPENT = {{ progress.time_spent_seconds if progress else 0 }};
+</script>
+<script src="{{ url_for('static', filename='js/learning_student.js') }}"></script>
+{% endblock %}

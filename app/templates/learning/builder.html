@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% block title %}Editor - {{ learning.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header Builder -->
+    <div class="card shadow-sm mb-4 border-0 rounded-3">
+        <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2 py-3 bg-white">
+            <div class="d-flex align-items-center gap-3">
+                <a href="{{ url_for('learning.instructor_dashboard') }}" class="btn btn-outline-secondary btn-sm" title="Volver al panel">
+                    <i class="bi bi-arrow-left me-1"></i>Volver
+                </a>
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <h4 class="fw-bold mb-0 text-dark" id="learningTitleText">{{ learning.nombre }}</h4>
+                        <button class="btn btn-link btn-sm p-0 text-secondary" data-bs-toggle="modal" data-bs-target="#editMetaModal" title="Editar título y portada">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted"><i class="bi bi-boxes me-1"></i>Visual Builder Basado en Bloques</small>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light text-secondary border px-3 py-2" id="saveStatus">
+                    <i class="bi bi-check-circle-fill text-success me-1"></i>Guardado
+                </span>
+
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-primary active" id="btnEditMode">
+                        <i class="bi bi-pencil me-1"></i>Edición
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnPreviewMode">
+                        <i class="bi bi-eye me-1"></i>Vista Previa
+                    </button>
+                </div>
+
+                <button class="btn btn-sm {% if learning.estado == 'published' %}btn-success{% else %}btn-warning text-dark{% endif %}" id="btnPublishToggle" data-id="{{ learning.id }}">
+                    <i class="bi bi-globe me-1"></i><span id="pubText">{% if learning.estado == 'published' %}Publicado{% else %}Borrador{% endif %}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Sidebar Módulos y Lecciones -->
+        <div class="col-lg-3">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-diagram-3 me-2"></i>Estructura del Curso</h6>
+                    <button class="btn btn-light btn-sm text-primary fw-bold" onclick="createModule({{ learning.id }})" title="Agregar Módulo">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+                <div class="card-body p-2" id="modulesTreeContainer">
+                    {% for mod in learning.modules %}
+                        {% set is_first_mod = loop.first %}
+                        <div class="module-item mb-3 p-2 rounded bg-light border" data-module-id="{{ mod.id }}">
+                            <div class="d-flex justify-content-between align-items-center mb-2 fw-bold text-dark">
+                                <span class="text-truncate module-title-span" title="{{ mod.titulo }}"><i class="bi bi-folder2-open me-1 text-primary"></i>{{ mod.titulo }}</span>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-link text-primary p-0 me-1" onclick="createLesson({{ mod.id }})" title="Agregar Lección"><i class="bi bi-plus-square"></i></button>
+                                    <button class="btn btn-link text-secondary p-0 me-1" onclick="editModuleModal({{ mod.id }}, '{{ mod.titulo|escape }}')" title="Editar"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-link text-danger p-0" onclick="deleteModule({{ mod.id }})" title="Eliminar"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </div>
+                            <div class="list-group list-group-flush ps-2">
+                                {% for les in mod.lessons %}
+                                    <button type="button" class="list-group-item list-group-item-action border-0 rounded py-1 px-2 small lesson-nav-btn {% if loop.first and is_first_mod %}active{% endif %}"
+                                            data-lesson-id="{{ les.id }}"
+                                            data-lesson-title="{{ les.titulo|escape }}"
+                                            onclick="selectLesson({{ les.id }}, this)">
+                                        <i class="bi bi-file-earmark-text me-1"></i>{{ les.titulo }}
+                                        <span class="badge bg-secondary rounded-pill float-end">{{ les.blocks|length }}</span>
+                                    </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Área Principal Editor de Bloques -->
+        <div class="col-lg-9">
+            <div class="card shadow-sm border-0 rounded-3 min-vh-75">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark" id="currentLessonHeader">Cargando Lección...</h5>
+                        <small class="text-muted">Arrastra o usa las acciones para organizar la secuencia de bloques.</small>
+                    </div>
+                    <button class="btn btn-success btn-sm fw-bold" onclick="openAddBlockModal()">
+                        <i class="bi bi-plus-circle me-1"></i>Agregar Bloque
+                    </button>
+                </div>
+
+                <div class="card-body p-4" id="blocksContainer">
+                    <!-- Los bloques se renderizan dinámicamente mediante JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Selección de Bloque -->
+<div class="modal fade" id="addBlockModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-plus-square me-2"></i>Seleccionar Tipo de Bloque</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('text')">
+                            <i class="bi bi-file-richtext display-6 d-block mb-2 text-primary"></i>
+                            <strong class="d-block">Texto Enriquecido</strong>
+                            <small class="text-muted">Editor HTML/Markdown, negritas, listas y tablas.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('image')">
+                            <i class="bi bi-image display-6 d-block mb-2 text-success"></i>
+                            <strong class="d-block">Imagen</strong>
+                            <small class="text-muted">Subida local, vista previa, texto alt y pie.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('video')">
+                            <i class="bi bi-play-btn display-6 d-block mb-2 text-danger"></i>
+                            <strong class="d-block">Video</strong>
+                            <small class="text-muted">Video local MP4/WEBM o YouTube/Vimeo embebido.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('question')">
+                            <i class="bi bi-patch-question display-6 d-block mb-2 text-warning"></i>
+                            <strong class="d-block">Pregunta Interactiva</strong>
+                            <small class="text-muted">Opción múltiple, V/F, corta, espacios, orden, parejas.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('title')">
+                            <i class="bi bi-type-h1 display-6 d-block mb-2 text-info"></i>
+                            <strong class="d-block">Título / Encabezado</strong>
+                            <small class="text-muted">Separadores de sección y subtítulos visuales.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('quote')">
+                            <i class="bi bi-quote display-6 d-block mb-2 text-secondary"></i>
+                            <strong class="d-block">Cita / Nota</strong>
+                            <small class="text-muted">Citas destacadas, advertencias y cajas de alerta.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('pdf')">
+                            <i class="bi bi-file-earmark-pdf display-6 d-block mb-2 text-danger"></i>
+                            <strong class="d-block">Visor PDF</strong>
+                            <small class="text-muted">Visualización e integración de documentos PDF.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('download')">
+                            <i class="bi bi-cloud-arrow-down display-6 d-block mb-2 text-success"></i>
+                            <strong class="d-block">Descarga de Archivos</strong>
+                            <small class="text-muted">Archivos adjuntos descargables para el estudiante.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('audio')">
+                            <i class="bi bi-music-note-beamer display-6 d-block mb-2 text-primary"></i>
+                            <strong class="d-block">Audio / Podcast</strong>
+                            <small class="text-muted">Reproductor de audio local, podcast o narración.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('embed')">
+                            <i class="bi bi-code-slash display-6 d-block mb-2 text-dark"></i>
+                            <strong class="d-block">Contenido Embebido</strong>
+                            <small class="text-muted">iFrames de Google Maps, Canva, Figma, PowerBI.</small>
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 p-3 text-start h-100 block-picker-card" onclick="addBlock('divider')">
+                            <i class="bi bi-hr display-6 d-block mb-2 text-muted"></i>
+                            <strong class="d-block">Separador Visual</strong>
+                            <small class="text-muted">Línea divisor para estructurar bloques.</small>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edición Metadata Curso -->
+<div class="modal fade" id="editMetaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{{ url_for('learning.edit_learning', learning_id=learning.id) }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Editar Información del Curso</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre</label>
+                        <input type="text" name="nombre" class="form-control" value="{{ learning.nombre }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descripción</label>
+                        <textarea name="descripcion" class="form-control" rows="3">{{ learning.descripcion or '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cambiar Portada</label>
+                        <input type="file" name="portada_file" class="form-control" accept="image/*">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Configuración de Bloque (Dinámico) -->
+<div class="modal fade" id="blockConfigModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="blockConfigModalTitle"><i class="bi bi-sliders me-2"></i>Configurar Bloque</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="blockConfigModalBody">
+                <!-- Se llena mediante JS -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveBlockConfigFromModal()">Guardar Bloque</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.LEARNING_ID = {{ learning.id }};
+    window.LESSON_BLOCKS_MAP = {{ blocks_map|tojson }};
+    window.INITIAL_LESSON_ID = {% if learning.modules and learning.modules[0].lessons %}{{ learning.modules[0].lessons[0].id }}{% else %}null{% endif %};
+</script>
+<script src="{{ url_for('static', filename='js/learning_builder.js') }}"></script>
+{% endblock %}
+
