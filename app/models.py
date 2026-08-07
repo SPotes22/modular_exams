@@ -134,3 +134,90 @@ class StudentAnswer(db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+# ==========================================
+# LEARNING BUILDER MODELS
+# ==========================================
+
+class Learning(db.Model):
+    __tablename__ = 'learnings'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(150), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    estado = db.Column(db.String(20), default='draft')  # 'draft', 'published'
+    portada = db.Column(db.String(255), nullable=True)
+    autor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    autor = db.relationship('User', backref='learnings')
+    modules = db.relationship('LearningModule', backref='learning', cascade="all, delete-orphan", order_by="LearningModule.orden")
+    progress_records = db.relationship('LearningProgress', backref='learning', cascade="all, delete-orphan")
+
+
+class LearningModule(db.Model):
+    __tablename__ = 'learning_modules'
+    id = db.Column(db.Integer, primary_key=True)
+    learning_id = db.Column(db.Integer, db.ForeignKey('learnings.id'), nullable=False)
+    titulo = db.Column(db.String(150), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    orden = db.Column(db.Integer, default=1)
+
+    lessons = db.relationship('Lesson', backref='module', cascade="all, delete-orphan", order_by="Lesson.orden")
+
+
+class Lesson(db.Model):
+    __tablename__ = 'learning_lessons'
+    id = db.Column(db.Integer, primary_key=True)
+    module_id = db.Column(db.Integer, db.ForeignKey('learning_modules.id'), nullable=False)
+    titulo = db.Column(db.String(150), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    orden = db.Column(db.Integer, default=1)
+
+    blocks = db.relationship('Block', backref='lesson', cascade="all, delete-orphan", order_by="Block.orden")
+
+
+class Block(db.Model):
+    __tablename__ = 'learning_blocks'
+    id = db.Column(db.Integer, primary_key=True)
+    lesson_id = db.Column(db.Integer, db.ForeignKey('learning_lessons.id'), nullable=False)
+    tipo = db.Column(db.String(50), nullable=False)
+    orden = db.Column(db.Integer, default=1)
+    visible = db.Column(db.Boolean, default=True)
+    configuracion = db.Column(db.JSON, nullable=False, default=dict)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+
+    answers = db.relationship('BlockAnswer', backref='block', cascade="all, delete-orphan")
+
+
+class LearningProgress(db.Model):
+    __tablename__ = 'learning_progress'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    learning_id = db.Column(db.Integer, db.ForeignKey('learnings.id'), nullable=False)
+    current_lesson_id = db.Column(db.Integer, db.ForeignKey('learning_lessons.id'), nullable=True)
+    current_block_id = db.Column(db.Integer, db.ForeignKey('learning_blocks.id'), nullable=True)
+    progress_percent = db.Column(db.Float, default=0.0)
+    time_spent_seconds = db.Column(db.Integer, default=0)
+    score = db.Column(db.Float, default=0.0)
+    last_activity = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed = db.Column(db.Boolean, default=False)
+
+    student = db.relationship('User', backref='learning_progresses')
+    current_lesson = db.relationship('Lesson')
+    current_block = db.relationship('Block')
+
+
+class BlockAnswer(db.Model):
+    __tablename__ = 'learning_block_answers'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    block_id = db.Column(db.Integer, db.ForeignKey('learning_blocks.id'), nullable=False)
+    answer_data = db.Column(db.JSON, nullable=False, default=dict)
+    is_correct = db.Column(db.Boolean, nullable=True)
+    score = db.Column(db.Float, default=0.0)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User')
+

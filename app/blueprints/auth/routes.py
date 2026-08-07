@@ -7,7 +7,9 @@ from app.blueprints.auth import auth_bp
 @auth_bp.route('/')
 def home():
     if current_user.is_authenticated:
-        if current_user.role == 'instructor':
+        if current_user.role in ['superuser', 'admin']:
+            return redirect(url_for('admin.dashboard'))
+        elif current_user.role == 'instructor':
             return redirect(url_for('exams.instructor_dashboard'))
         return redirect(url_for('auth.student_join_exam'))
     return render_template('login.html')
@@ -15,15 +17,23 @@ def home():
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        user = User.query.filter_by(email=email, role='instructor').first()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '').strip()
+        user = User.query.filter_by(email=email).first()
         
         if user and user.check_password(password):
             login_user(user)
-            return redirect(url_for('exams.instructor_dashboard'))
+            if user.role in ['superuser', 'admin']:
+                flash(f'Bienvenido Superusuario {user.username}', 'success')
+                return redirect(url_for('admin.dashboard'))
+            elif user.role == 'instructor':
+                flash(f'Bienvenido Profesor {user.username}', 'success')
+                return redirect(url_for('exams.instructor_dashboard'))
+            else:
+                flash('Los estudiantes deben ingresar con su código de sala.', 'info')
+                return redirect(url_for('auth.student_join_exam'))
         
-        flash('Credenciales de profesor inválidas', 'danger')
+        flash('Credenciales de acceso inválidas', 'danger')
     return render_template('login.html')
 
 @auth_bp.route('/logout')

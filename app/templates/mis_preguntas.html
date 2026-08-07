@@ -1,12 +1,168 @@
 {% extends 'base.html' %}
-{% block title %}Banco de Preguntas{% endblock %}
+{% block title %}Gestión de Bancos y Preguntas{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Banco de Preguntas e Importación</h2>
+    <h2>Bancos de Preguntas</h2>
     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importExcelModal">
         📊 Importar desde Excel / CSV
     </button>
+</div>
+
+<!-- Tarjetas de Bancos Disponibles -->
+<div class="row mb-4">
+    {% for bank in banks %}
+    <div class="col-md-4 mb-3">
+        <div class="card h-100 border-start border-4 border-primary shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title d-flex justify-content-between align-items-center">
+                    <span>{{ bank.name }}</span>
+                    <div>
+                        <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editBankModal{{ bank.id }}">✏️</button>
+                        <form action="{{ url_for('questions.delete_bank', bank_id=bank.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('¿Eliminar este banco y todas sus preguntas?')">🗑️</button>
+                        </form>
+                    </div>
+                </h5>
+                <p class="card-text text-muted small">{{ bank.description or 'Sin descripción.' }}</p>
+            </div>
+            <div class="card-footer bg-transparent border-0 d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('questions.mis_preguntas', bank=bank.id) }}" class="btn btn-sm btn-outline-primary">Filtrar preguntas</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Banco -->
+    <div class="modal fade" id="editBankModal{{ bank.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="{{ url_for('questions.edit_bank', bank_id=bank.id) }}" method="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Editar Banco: {{ bank.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre del Banco</label>
+                            <input type="text" name="name" class="form-control" value="{{ bank.name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea name="description" class="form-control" rows="2">{{ bank.description or '' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="alert alert-info">No tienes bancos creados todavía.</div>
+    </div>
+    {% endfor %}
+</div>
+
+<hr class="my-4">
+
+<!-- Barra de Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('questions.mis_preguntas') }}" class="row g-3 align-items-center">
+            <div class="col-md-5">
+                <label class="form-label fw-bold">Filtrar por Banco</label>
+                <select name="bank" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos los bancos</option>
+                    {% for bank in banks %}
+                        <option value="{{ bank.id }}" {% if filter_bank == bank.id %}selected{% endif %}>{{ bank.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label fw-bold">Filtrar por Tipo</label>
+                <select name="type" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos los tipos</option>
+                    <option value="multiple_choice" {% if filter_type == 'multiple_choice' %}selected{% endif %}>Opción Múltiple</option>
+                    <option value="true_false" {% if filter_type == 'true_false' %}selected{% endif %}>Verdadero/Falso</option>
+                    <option value="matching" {% if filter_type == 'matching' %}selected{% endif %}>Emparejamiento</option>
+                    <option value="ordering" {% if filter_type == 'ordering' %}selected{% endif %}>Ordenamiento</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <a href="{{ url_for('questions.mis_preguntas') }}" class="btn btn-secondary w-100">Limpiar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de Preguntas -->
+<div class="card shadow-sm">
+    <div class="card-body">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Tipo</th>
+                    <th>Enunciado</th>
+                    <th>Categoría</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in questions %}
+                <tr>
+                    <td>{{ q.id }}</td>
+                    <td><span class="badge bg-secondary">{{ q.question_type }}</span></td>
+                    <td>{{ q.statement }}</td>
+                    <td><span class="badge bg-info text-dark">{{ q.category }}</span></td>
+                    <td>
+                        <button class="btn btn-warning btn-sm me-1" data-bs-toggle="modal" data-bs-target="#editQuestionModal{{ q.id }}">✏️ Editar</button>
+                        <form action="{{ url_for('questions.delete_question', question_id=q.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar pregunta?')">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+
+                <!-- Modal Editar Pregunta -->
+                <div class="modal fade" id="editQuestionModal{{ q.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form action="{{ url_for('questions.edit_question', question_id=q.id) }}" method="POST">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Editar Pregunta #{{ q.id }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Enunciado</label>
+                                        <textarea name="statement" class="form-control" rows="3" required>{{ q.statement }}</textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Categoría</label>
+                                        <input type="text" name="category" class="form-control" value="{{ q.category }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Retroalimentación / Feedback</label>
+                                        <textarea name="feedback_text" class="form-control" rows="2">{{ q.feedback_text or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-primary">Actualizar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No hay preguntas registradas con los filtros seleccionados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Modal Importar Excel -->
@@ -37,41 +193,6 @@
                 </div>
             </form>
         </div>
-    </div>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-body">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Tipo</th>
-                    <th>Enunciado</th>
-                    <th>Categoría</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for q in questions %}
-                <tr>
-                    <td>{{ q.id }}</td>
-                    <td><span class="badge bg-secondary">{{ q.question_type }}</span></td>
-                    <td>{{ q.statement }}</td>
-                    <td>{{ q.category }}</td>
-                    <td>
-                        <form action="{{ url_for('questions.delete_question', question_id=q.id) }}" method="POST" class="d-inline">
-                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar pregunta?')">X</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center text-muted">No hay preguntas registradas en los bancos.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
     </div>
 </div>
 {% endblock %}

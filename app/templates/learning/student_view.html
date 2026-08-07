@@ -40,30 +40,52 @@
     </div>
 
     <div class="row g-4">
-        <!-- Sidebar Módulos y Lecciones Estudiante -->
-        <div class="col-lg-3">
-            <div class="card shadow-sm border-0 rounded-3">
-                <div class="card-header bg-primary text-white fw-bold">
-                    <i class="bi bi-list-nested me-2"></i>Contenido del Curso
-                </div>
-                <div class="accordion accordion-flush" id="studentModulesAccordion">
-                {% for module in learning.modules %}
-  {% set module_loop = loop %}  {# Guardamos el contexto del bucle padre #}
-  
-  {% for lesson in module.lessons %}
-    <button type="button" 
-            class="list-group-item list-group-item-action py-2 px-3 small student-lesson-btn {% if loop.first and module_loop.first %}active{% endif %}"
-            data-lesson-id="{{ lesson.id }}">
-      {{ lesson.title }}
-    </button>
-  {% endfor %}
-{% endfor %}                 
-		                    
+             
+	<!-- Sidebar Módulos y Lecciones Estudiante -->
+<div class="col-lg-3">
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-header bg-primary text-white fw-bold">
+            <i class="bi bi-list-nested me-2"></i>Contenido del Curso
+        </div>
+        <div class="accordion accordion-flush" id="studentModulesAccordion">
+        {% for module in learning.modules %}
+            {% set module_loop = loop %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingModule{{ module.id }}">
+                    <button class="accordion-button {% if not module_loop.first %}collapsed{% endif %} fw-semibold text-dark py-2 px-3 small" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#collapseModule{{ module.id }}" 
+                            aria-expanded="{% if module_loop.first %}true{% else %}false{% endif %}" 
+                            aria-controls="collapseModule{{ module.id }}">
+                        {{ module.titulo }}
+                    </button>
+                </h2>
+                <div id="collapseModule{{ module.id }}" 
+                     class="accordion-collapse collapse {% if module_loop.first %}show{% endif %}" 
+                     aria-labelledby="headingModule{{ module.id }}" 
+                     data-bs-parent="#studentModulesAccordion">
+                    <div class="accordion-body p-0">
+                        <div class="list-group list-group-flush">
+                        {% for lesson in module.lessons %}
+                            <button type="button" 
+                                    class="list-group-item list-group-item-action py-2 px-3 small student-lesson-btn {% if loop.first and module_loop.first %}active{% endif %}" 
+                                    data-lesson-id="{{ lesson.id }}">
+                                <i class="bi bi-play-circle me-2"></i>{{ lesson.titulo }}
+                            </button>
+                        {% endfor %}
+                        </div>
+                    </div>
                 </div>
             </div>
+        {% endfor %}
         </div>
+    </div>
+</div>
 
-        <!-- Visor Principal de Bloques -->
+
+
+                <!-- Visor Principal de Bloques -->
         <div class="col-lg-9">
             <div class="card shadow-sm border-0 rounded-3 min-vh-75">
                 <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
@@ -83,23 +105,94 @@
 </div>
 {% endblock %}
 
+
 {% block scripts %}
 <script>
     window.LEARNING_ID = {{ learning.id }};
     window.CURRENT_USER_ID = {{ current_user.id }};
+    window.TRAINING_ALREADY_COMPLETED = {{ 'true' if progress and progress.completed else 'false' }};
     window.LESSON_BLOCKS_MAP = {
         {% for module in learning.modules %}
-  {% set module_loop = loop %}  {# <-- Agrega esta línea #}
-  {% for lesson in module.lessons %}
-    {
-      "id": {{ lesson.id }},
-      "title": "{{ lesson.title }}"
-    }{% if not (loop.last and module_loop.last) %},{% endif %}  {# <-- Cambia loop.parent por module_loop #}
-  {% endfor %}
-{% endfor %}
+        {% set module_loop = loop %}
+        {% for lesson in module.lessons %}
+        {{ lesson.id }}: [
+            {% for blk in lesson.blocks %}
+            {
+                "id": {{ blk.id }},
+                "tipo": {{ blk.tipo | tojson }},
+                "visible": {{ blk.visible | tojson }},
+                "configuracion": {{ blk.configuracion | tojson }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]{% if not (loop.last and module_loop.last) %},{% endif %}
+        {% endfor %}
+        {% endfor %}
     };
     window.INITIAL_LESSON_ID = {% if progress and progress.current_lesson_id %}{{ progress.current_lesson_id }}{% elif learning.modules and learning.modules[0].lessons %}{{ learning.modules[0].lessons[0].id }}{% else %}null{% endif %};
     window.INITIAL_TIME_SPENT = {{ progress.time_spent_seconds if progress else 0 }};
+
+    document.addEventListener("DOMContentLoaded", function () {
+        let secondsSpent = window.INITIAL_TIME_SPENT || 0;
+        let isCompleted = window.TRAINING_ALREADY_COMPLETED;
+        let timerInterval = null;
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m}m ${s}s`;
+        }
+
+        function startTimer() {
+            const timerText = document.getElementById("timerText");
+            if (timerText) timerText.innerText = formatTime(secondsSpent);
+
+            if (isCompleted) return;
+
+            timerInterval = setInterval(() => {
+                const progressText = document.getElementById("progressPercentText");
+                if (progressText) {
+                    const percent = parseFloat(progressText.innerText.replace("%", "")) || 0;
+                    if (percent >= 100) {
+                        clearInterval(timerInterval);
+                        return;
+                    }
+                }
+
+                secondsSpent++;
+                if (timerText) timerText.innerText = formatTime(secondsSpent);
+
+                if (secondsSpent % 10 === 0) {
+                    fetch("/api/progress/update", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            learning_id: window.LEARNING_ID,
+                            time_delta: 10
+                        })
+                    }).then(res => res.json()).then(data => {
+                        if (data.completed) {
+                            clearInterval(timerInterval);
+                        }
+                    }).catch(err => console.error(err));
+                }
+            }, 1000);
+        }
+
+        startTimer();
+
+        document.querySelectorAll(".student-lesson-btn").forEach(btn => {
+            btn.addEventListener("click", function () {
+                document.querySelectorAll(".student-lesson-btn").forEach(b => b.classList.remove("active"));
+                this.classList.add("active");
+
+                const lessonId = this.getAttribute("data-lesson-id");
+
+                if (typeof loadStudentLesson === "function") {
+                    loadStudentLesson(lessonId);
+                }
+            });
+        });
+    });
 </script>
 <script src="{{ url_for('static', filename='js/learning_student.js') }}"></script>
 {% endblock %}

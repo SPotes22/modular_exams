@@ -1,41 +1,175 @@
 {% extends 'base.html' %}
-{% block title %}Sala {{ session.session_code }}{% endblock %}
+{% block title %}Sala {{ session.session_code }} - Panel de Control{% endblock %}
 
 {% block content %}
-<div class="card mb-4 border-primary">
-    <div class="card-body d-flex justify-content-between align-items-center">
+<!-- Session Header Card -->
+<div class="card mb-4 border-0 shadow-sm bg-white">
+    <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
-            <h3>Sala: <strong class="text-primary" id="room-code">{{ session.session_code }}</strong></h3>
-            <p class="mb-0 text-muted">Examen: {{ session.exam.title }} | Estado: <span class="badge bg-warning" id="session-status">{{ session.status }}</span></p>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary fs-6 px-3 py-2">Código: <strong id="room-code">{{ session.session_code }}</strong></span>
+                <span class="badge bg-warning text-dark fs-6 px-3 py-2" id="session-status">{{ session.status }}</span>
+            </div>
+            <h3 class="fw-bold mb-1 text-dark">{{ session.exam.title }}</h3>
+            <p class="mb-0 text-muted small">
+                <i class="bi bi-question-circle me-1"></i>{{ session.exam.questions|length }} Preguntas | 
+                <i class="bi bi-clock me-1"></i>{{ session.exam.duration_minutes }} Minutos | 
+                <i class="bi bi-link-45deg me-1"></i>Enlace de ingreso: <a href="{{ join_url }}" target="_blank" class="text-decoration-none">{{ join_url }}</a>
+            </p>
         </div>
-        <div>
-            <button id="btn-start" class="btn btn-success btn-lg" onclick="startExam()">Iniciar Examen para Todos</button>
-            <button id="btn-next-question" class="btn btn-primary btn-lg d-none" onclick="nextTeacherQuestion()">Siguiente pregunta</button>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <button id="btn-start" class="btn btn-success btn-lg shadow-sm" onclick="startExam()">
+                <i class="bi bi-play-circle-fill me-1"></i> Iniciar Examen
+            </button>
+            <button id="btn-next-question" class="btn btn-primary btn-lg shadow-sm d-none" onclick="nextTeacherQuestion()">
+                <i class="bi bi-arrow-right-circle-fill me-1"></i> Siguiente Pregunta
+            </button>
             <form action="{{ url_for('exams.close_session', session_id=session.id) }}" method="POST" class="d-inline">
-                <button type="submit" class="btn btn-danger btn-lg">Finalizar Sala</button>
+                <button type="submit" class="btn btn-outline-danger btn-lg shadow-sm" onclick="return confirm('¿Desea finalizar esta sala de examen?');">
+                    <i class="bi bi-stop-circle-fill me-1"></i> Finalizar Sala
+                </button>
             </form>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-8">
-        <h4>Estudiantes Conectados / Entregas</h4>
-        <ul class="list-group" id="students-list">
-            {% for attempt in attempts %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    {{ attempt.student.username }}
-                    <span class="badge bg-success">Completado: {{ attempt.score }}%</span>
-                </li>
-            {% else %}
-                <li class="list-group-item text-muted" id="no-students">Esperando a que se unan estudiantes...</li>
-            {% endfor %}
-        </ul>
+<div class="row g-4">
+    <!-- Live Students & Submissions Column -->
+    <div class="col-lg-8">
+        <!-- Live Students Section -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-people-fill text-primary me-2"></i>Estudiantes en Vivo</h5>
+                <span class="badge bg-primary rounded-pill" id="live-count">0 en línea</span>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" id="students-list">
+                    <li class="list-group-item text-muted text-center py-4" id="no-students">
+                        <i class="bi bi-person-slash fs-2 d-block mb-2"></i>
+                        Esperando a que los estudiantes se unan a la sala...
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Completed Attempts Section -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-journal-check text-success me-2"></i>Exámenes Entregados (Base de Datos)</h5>
+                <span class="badge bg-success rounded-pill">{{ attempts|length }} Entregas</span>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for attempt in attempts %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2 py-3 border-start border-success border-4">
+                        <div>
+                            <div class="fw-bold text-dark fs-6">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i>{{ attempt.student.username }}
+                                <span class="badge bg-success ms-2">Completado</span>
+                            </div>
+                            <div class="small text-muted mt-1">
+                                Nota Final: <strong class="text-success">{{ attempt.score }}%</strong> | 
+                                Fecha: {{ attempt.completed_at.strftime('%H:%M - %d/%m/%Y') }}
+                            </div>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-outline-info btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#attemptModal{{ attempt.id }}">
+                                <i class="bi bi-eye-fill me-1"></i> Ver Respuestas (✓/✗)
+                            </button>
+                        </div>
+                    </li>
+
+                    <!-- Modal para Intento Finalizado -->
+                    <div class="modal fade" id="attemptModal{{ attempt.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                            <div class="modal-content">
+                                <div class="modal-header bg-success text-white">
+                                    <h5 class="modal-title fw-bold">
+                                        <i class="bi bi-file-earmark-check-fill me-2"></i>Detalle de Respuestas: {{ attempt.student.username }}
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body bg-light">
+                                    <div class="alert alert-success d-flex justify-content-between align-items-center mb-3">
+                                        <div><strong>Puntaje Final:</strong> {{ attempt.score }}%</div>
+                                        <div><strong>Fecha de entrega:</strong> {{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                                    </div>
+
+                                    {% for answer in attempt.answers %}
+                                    <div class="card mb-3 border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="fw-bold mb-0 text-dark">
+                                                    Pregunta {{ loop.index }}: {{ answer.question.statement }}
+                                                </h6>
+                                                <div>
+                                                    {% if answer.is_correct %}
+                                                        <span class="badge bg-success fs-6 py-2 px-3"><i class="bi bi-check-circle-fill me-1"></i> Correcta (✓)</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger fs-6 py-2 px-3"><i class="bi bi-x-circle-fill me-1"></i> Incorrecta (✗)</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="small text-secondary">
+                                                <strong>Respuesta del estudiante:</strong> 
+                                                {% if answer.selected_option %}
+                                                    <span class="badge bg-white text-dark border px-2 py-1 ms-1">{{ answer.selected_option.option_text }}</span>
+                                                {% else %}
+                                                    <em class="text-muted ms-1">Respuesta enviada</em>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted text-center py-3">No hay respuestas registradas en la base de datos.</p>
+                                    {% endfor %}
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <li class="list-group-item text-muted text-center py-3">Aún no hay entregas finalizadas.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
     </div>
-    <div class="col-md-4">
-        <h4>Alertas Anti-Cheat</h4>
-        <div class="border rounded p-3 bg-white" id="alerts-log" style="height: 300px; overflow-y: auto;">
-            <p class="text-muted small">Sin incidencias reportadas.</p>
+
+    <!-- Anti-Cheat Alerts Column -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-shield-exclamation text-warning me-2"></i>Alertas Anti-Cheat</h5>
+            </div>
+            <div class="card-body p-3 bg-light" id="alerts-log" style="max-height: 450px; overflow-y: auto;">
+                <p class="text-muted small mb-0 text-center py-4" id="no-alerts">
+                    <i class="bi bi-shield-check fs-2 text-success d-block mb-2"></i>
+                    Sin incidencias reportadas en esta sesión.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Estudiante en Vivo (Socket.IO) -->
+<div class="modal fade" id="studentDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-person-badge-fill me-2"></i>Respuestas de <span id="modalStudentName"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light" id="modalStudentDetailsBody">
+                <!-- Se llena dinámicamente con JS -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
         </div>
     </div>
 </div>
@@ -47,27 +181,119 @@
     const sessionId = {{ session.id }};
     const roomCode = "{{ session.session_code }}".trim().toUpperCase();
 
+    // Preguntas del examen renderizadas desde el servidor
+    const examQuestions = [
+        {% for eq in session.exam.questions %}
+        {
+            id: {{ eq.question.id }},
+            statement: {{ eq.question.statement | tojson }},
+            points: {{ eq.points }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
     socket.on('connect', () => {
         socket.emit('teacher_join', { room_code: roomCode });
     });
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function renderStudents(students) {
         const studentList = document.getElementById('students-list');
+        const liveCount = document.getElementById('live-count');
         studentList.innerHTML = '';
+
         if (!students || students.length === 0) {
-            studentList.innerHTML = '<li class="list-group-item text-muted">Esperando a que se unan estudiantes...</li>';
+            liveCount.innerText = '0 en línea';
+            studentList.innerHTML = `
+                <li class="list-group-item text-muted text-center py-4" id="no-students">
+                    <i class="bi bi-person-slash fs-2 d-block mb-2"></i>
+                    Esperando a que los estudiantes se unan a la sala...
+                </li>`;
             return;
         }
+
+        liveCount.innerText = `${students.filter(s => s.connected).length} en línea`;
+
         students.forEach(student => {
             const li = document.createElement('li');
-            li.className = 'list-group-item d-flex justify-content-between align-items-center';
-            li.innerText = student.username;
-            const badge = document.createElement('span');
-            badge.className = `badge ${student.connected ? 'bg-success' : 'bg-secondary'}`;
-            badge.innerText = student.connected ? 'Conectado' : 'Desconectado';
-            li.appendChild(badge);
+            li.className = 'list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2 py-3';
+
+            const infoDiv = document.createElement('div');
+            infoDiv.innerHTML = `
+                <div class="fw-bold fs-6 text-dark">
+                    <i class="bi bi-person-circle text-primary me-1"></i>${escapeHtml(student.username)}
+                    <span class="badge ${student.connected ? 'bg-success' : 'bg-secondary'} ms-2">
+                        ${student.connected ? 'Conectado' : 'Desconectado'}
+                    </span>
+                </div>
+                <div class="small text-muted mt-1">
+                    Respondidas: <strong>${student.answered_count} / ${examQuestions.length}</strong> | 
+                    Puntaje actual: <strong>${student.score} pts</strong>
+                </div>
+            `;
+
+            const btnDiv = document.createElement('div');
+            const detailBtn = document.createElement('button');
+            detailBtn.className = 'btn btn-outline-primary btn-sm shadow-sm';
+            detailBtn.innerHTML = '<i class="bi bi-list-check me-1"></i> Ver Respuestas (✓/✗)';
+            detailBtn.onclick = () => showStudentDetails(student);
+            btnDiv.appendChild(detailBtn);
+
+            li.appendChild(infoDiv);
+            li.appendChild(btnDiv);
             studentList.appendChild(li);
         });
+    }
+
+    function showStudentDetails(student) {
+        document.getElementById('modalStudentName').innerText = student.username;
+        const body = document.getElementById('modalStudentDetailsBody');
+        body.innerHTML = '';
+
+        const answers = student.answered_questions || {};
+
+        examQuestions.forEach((q, idx) => {
+            const qAns = answers[q.id] || answers[String(q.id)];
+            let statusBadge = '<span class="badge bg-secondary py-2 px-3"><i class="bi bi-dash-circle me-1"></i>Sin responder</span>';
+            let ansText = '<em class="text-muted">El estudiante aún no ha enviado respuesta a esta pregunta.</em>';
+
+            if (qAns) {
+                const isCorrect = qAns.result && qAns.result.correct;
+                const selectedText = (qAns.result && qAns.result.selected_option_text) || (qAns.answer && (qAns.answer.text || qAns.answer.selected_option_id)) || 'Respuesta registrada';
+
+                if (isCorrect) {
+                    statusBadge = '<span class="badge bg-success fs-6 py-2 px-3"><i class="bi bi-check-circle-fill me-1"></i> Correcta (✓)</span>';
+                } else {
+                    statusBadge = '<span class="badge bg-danger fs-6 py-2 px-3"><i class="bi bi-x-circle-fill me-1"></i> Incorrecta (✗)</span>';
+                }
+                ansText = `<strong>Respuesta seleccionada:</strong> <span class="badge bg-white text-dark border px-2 py-1 ms-1">${escapeHtml(selectedText)}</span>`;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'card mb-3 border-0 shadow-sm';
+            card.innerHTML = `
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="fw-bold mb-0 text-dark">Pregunta ${idx + 1}: ${escapeHtml(q.statement)}</h6>
+                        <div>${statusBadge}</div>
+                    </div>
+                    <div class="small text-secondary">${ansText}</div>
+                </div>
+            `;
+            body.appendChild(card);
+        });
+
+        const modal = new bootstrap.Modal(document.getElementById('studentDetailModal'));
+        modal.show();
     }
 
     function startExam() {
@@ -80,18 +306,32 @@
     }
 
     socket.on('students_updated', data => renderStudents(data.students));
+
     socket.on('exam_started', data => {
-        document.getElementById('session-status').innerText = data.status || 'in_progress';
+        const badge = document.getElementById('session-status');
+        if (badge) {
+            badge.innerText = data.status || 'in_progress';
+            badge.className = 'badge bg-success fs-6 px-3 py-2';
+        }
     });
+
     socket.on('teacher_can_continue', () => {
         document.getElementById('btn-next-question').classList.remove('d-none');
     });
+
     socket.on('next_question', () => {
         document.getElementById('btn-next-question').classList.add('d-none');
     });
+
     socket.on('cheat_warning', data => {
         const log = document.getElementById('alerts-log');
-        log.innerHTML += `<p><strong>${data.username}</strong>: ${data.reason}</p>`;
+        const noAlerts = document.getElementById('no-alerts');
+        if (noAlerts) noAlerts.remove();
+        
+        const alertItem = document.createElement('div');
+        alertItem.className = 'alert alert-warning border-0 shadow-sm py-2 px-3 mb-2 small';
+        alertItem.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-warning me-2"></i><strong>${escapeHtml(data.username)}</strong>: ${escapeHtml(data.reason)}`;
+        log.prepend(alertItem);
     });
 </script>
 {% endblock %}

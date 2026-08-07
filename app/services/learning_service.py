@@ -395,8 +395,8 @@ def update_student_progress(user_id, learning_id, lesson_id=None, block_id=None,
     learning = Learning.query.get(learning_id)
     all_lessons = []
     total_blocks = 0
-    for mod in learning.modules:
-        for les in mod.lessons:
+    for mod in sorted(learning.modules, key=lambda m: m.orden or 0):
+        for les in sorted(mod.lessons, key=lambda l: l.orden or 0):
             all_lessons.append(les)
             total_blocks += len(les.blocks)
 

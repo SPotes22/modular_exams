@@ -52,17 +52,20 @@ def load_session_questions(db_session_id):
 
 def grade_answer(question, answer):
     answer = answer or {}
+    selected_option_text = None
     if question['type'] in ['multiple_choice', 'true_false', 'video']:
         selected_id = answer.get('selected_option_id') or answer.get('selected_id')
         option = QuestionOption.query.get(selected_id) if selected_id else None
         correct = bool(option and option.question_id == question['id'] and option.is_correct)
+        if option:
+            selected_option_text = option.option_text
     else:
-        # Complex question types still persist progress in realtime; final HTTP submit remains canonical.
         correct = False
     points = float(question.get('points') or 0) if correct else 0.0
     return {
         'question_id': question['id'],
         'correct': correct,
         'points': points,
+        'selected_option_text': selected_option_text,
         'feedback': question.get('feedback_text') or ('Correcta' if correct else 'Incorrecta')
     }

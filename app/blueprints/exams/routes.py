@@ -98,7 +98,7 @@ def create_session(exam_id):
 @exams_bp.route('/instructor/lobby/<int:session_id>')
 @login_required
 def instructor_lobby(session_id):
-    if current_user.role != 'instructor':
+    if current_user.role not in ['instructor', 'superuser', 'admin']:
         return redirect(url_for('auth.home'))
 
     session_obj = ExamSession.query.get_or_404(session_id)

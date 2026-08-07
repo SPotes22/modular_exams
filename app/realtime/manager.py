@@ -79,6 +79,7 @@ class SessionManager:
             'connected': s.connected,
             'answered_count': len(s.answered_questions),
             'score': s.score,
+            'answered_questions': s.answered_questions,
         } for s in session.students.values()]
 
     def start(self, room_code):

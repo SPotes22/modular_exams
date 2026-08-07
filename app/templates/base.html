@@ -5,20 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Simple Socrative{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="{{ url_for('auth.home') }}">Simple Socrative</a>
-            <div class="navbar-nav ms-auto">
+            <a class="navbar-brand fw-bold" href="{{ url_for('auth.home') }}"><i class="bi bi-journal-check me-1"></i>Simple Socrative</a>
+            <div class="navbar-nav ms-auto align-items-center">
                 {% if current_user.is_authenticated %}
-                    {% if current_user.role == 'instructor' %}
-                        <a class="nav-link text-white" href="{{ url_for('exams.instructor_dashboard') }}">Panel Profesor</a>
+                    {% if current_user.role in ['superuser', 'admin'] %}
+                        <a class="nav-link text-white fw-bold me-2" href="{{ url_for('admin.dashboard') }}"><i class="bi bi-shield-lock-fill me-1"></i>Panel Superusuario</a>
+                    {% endif %}
+                    {% if current_user.role == 'instructor' or current_user.role in ['superuser', 'admin'] %}
+                        <a class="nav-link text-white" href="{{ url_for('exams.instructor_dashboard') }}"><i class="bi bi-journal-text me-1"></i>Exámenes</a>
+                        <a class="nav-link text-white" href="{{ url_for('learning.instructor_dashboard') }}"><i class="bi bi-boxes me-1"></i>Learning Builder</a>
                         <a class="nav-link text-white" href="{{ url_for('questions.mis_preguntas') }}">Banco Preguntas</a>
                         <a class="nav-link text-white" href="{{ url_for('exams.exam_reports') }}">Reportes</a>
+                    {% else %}
+                        <a class="nav-link text-white" href="{{ url_for('learning.student_catalog') }}"><i class="bi bi-book me-1"></i>Mis Cursos</a>
                     {% endif %}
-                    <a class="btn btn-outline-light btn-sm ms-2" href="{{ url_for('auth.logout') }}">Cerrar Sesión</a>
+                    <span class="text-white-50 small ms-2 me-2">({{ current_user.username }})</span>
+                    <a class="btn btn-outline-light btn-sm" href="{{ url_for('auth.logout') }}">Cerrar Sesión</a>
                 {% endif %}
             </div>
         </div>

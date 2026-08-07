@@ -5,6 +5,16 @@ let timeSpentSeconds = window.INITIAL_TIME_SPENT || 0;
 let timerInterval = null;
 let allLessonsList = [];
 
+document.addEventListener('DOMContentLoaded', function() {
+    const firstLessonBtn = document.querySelector('.student-lesson-btn');
+    if (firstLessonBtn) {
+        // Tomamos el ID de la primera lección del botón HTML
+        studentLessonId = firstLessonBtn.getAttribute('data-lesson-id');
+        // Y luego la cargamos
+        loadLesson(studentLessonId);
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     // Recopilar lista de lecciones para navegación Siguiente/Anterior
     document.querySelectorAll('.student-lesson-btn').forEach(btn => {
@@ -355,7 +365,6 @@ function navigateLesson(direction) {
 }
 
 function saveProgressToBackend(timeDelta) {
-    // Si la lección o la capacitación aún no se han seleccionado/cargado, no hacer nada
     if (!studentLessonId || !window.LEARNING_ID) {
         return;
     }
@@ -370,39 +379,33 @@ function saveProgressToBackend(timeDelta) {
         })
     })
     .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            const pBar = document.getElementById('progressBar');
-            const pText = document.getElementById('progressPercentText');
-            const sText = document.getElementById('scoreText');
+.then(data => {
+    if (data.success) {
+        const pBar = document.getElementById('progressBar');
+        const pText = document.getElementById('progressPercentText');
+        const sText = document.getElementById('scoreText');
 
-            if (pBar) pBar.style.width = `${data.progress_percent}%`;
-            if (pText) pText.textContent = `${data.progress_percent.toFixed(1)}%`;
-            if (sText) sText.textContent = `${data.score.toFixed(1)} Pts`;
+        if (pBar) pBar.style.width = `${data.progress_percent}%`;
+        if (pText) pText.textContent = `${data.progress_percent.toFixed(1)}%`;
+        if (sText) sText.textContent = `${data.score.toFixed(1)} Pts`;
+
+        if (data.completed && !window.TRAINING_ALREADY_COMPLETED) {
+            window.TRAINING_ALREADY_COMPLETED = true;
+            showCompletionMessage();
         }
-    })
-    .catch(err => console.error("Error guardando progreso:", err));
+    }
+})
+.catch(err => console.error("Error guardando progreso:", err));
 }
-    
-    fetch('/learning/api/progress/update', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            learning_id: window.LEARNING_ID,
-            lesson_id: studentLessonId,
-            time_delta: timeDelta
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            const pBar = document.getElementById('progressBar');
-            const pText = document.getElementById('progressPercentText');
-            const sText = document.getElementById('scoreText');
 
-            if (pBar) pBar.style.width = `${data.progress_percent}%`;
-            if (pText) pText.textContent = `${data.progress_percent.toFixed(1)}%`;
-            if (sText) sText.textContent = `${data.score.toFixed(1)} Pts`;
-        }
-    });
+function showCompletionMessage() {
+    const container = document.getElementById('studentBlocksContainer');
+    if (!container) return;
+    const banner = document.createElement('div');
+    banner.className = 'alert alert-success text-center fw-bold mt-0 mb-4';
+    banner.innerHTML = `
+        <i class="bi bi-trophy-fill me-2"></i>¡Felicidades! Has completado esta capacitación.
+        <a href="/learning/student/catalog" class="btn btn-success btn-sm ms-3">Volver al catálogo</a>
+    `;
+    container.prepend(banner);
 }

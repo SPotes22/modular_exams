@@ -293,3 +293,55 @@ def import_questions_excel():
         flash(f'Error al procesar el archivo Excel: {str(e)}', 'danger')
 
     return redirect(url_for('questions.mis_preguntas'))
+
+@questions_bp.route('/instructor/bank/edit/<int:bank_id>', methods=['POST'])
+@login_required
+def edit_bank(bank_id):
+    if current_user.role != 'instructor':
+        return "Acceso denegado", 403
+
+    bank = Bank.query.get_or_404(bank_id)
+    if bank.created_by != current_user.id:
+        flash('No tienes permiso para editar este banco.', 'danger')
+        return redirect(url_for('questions.mis_preguntas'))
+
+    name = request.form.get('name', '').strip()
+    description = request.form.get('description', '').strip()
+
+    if not name:
+        flash('El nombre del banco no puede estar vacío.', 'danger')
+        return redirect(url_for('questions.mis_preguntas'))
+
+    bank.name = name
+    bank.description = description
+    db.session.commit()
+    flash('Banco actualizado exitosamente.', 'success')
+    return redirect(url_for('questions.mis_preguntas'))
+
+
+@questions_bp.route('/instructor/question/edit/<int:question_id>', methods=['POST'])
+@login_required
+def edit_question(question_id):
+    if current_user.role != 'instructor':
+        return "Acceso denegado", 403
+
+    question = Question.query.get_or_404(question_id)
+    if question.bank.created_by != current_user.id:
+        flash('No tienes permiso para modificar esta pregunta.', 'danger')
+        return redirect(url_for('questions.mis_preguntas'))
+
+    statement = request.form.get('statement', '').strip()
+    category = request.form.get('category', 'General').strip()
+    feedback_text = request.form.get('feedback_text', '').strip() or None
+
+    if not statement:
+        flash('El enunciado es obligatorio.', 'danger')
+        return redirect(url_for('questions.mis_preguntas'))
+
+    question.statement = statement
+    question.category = category
+    question.feedback_text = feedback_text
+
+    db.session.commit()
+    flash('Pregunta actualizada correctamente.', 'success')
+    return redirect(url_for('questions.mis_preguntas'))
