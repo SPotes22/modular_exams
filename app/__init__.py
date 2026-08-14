@@ -19,9 +19,28 @@ def ensure_schema():
             conn.exec_driver_sql("ALTER TABLE exam_sessions ADD COLUMN expected_students INTEGER DEFAULT 0")
 
 def init_db():
-    from app.models import User, Bank, Question, QuestionOption, Exam, ExamQuestion
+    from app.models import User, Bank, Question, QuestionOption, Exam, ExamQuestion, Learning, LearningModule, Lesson, Block, LearningProgress, BlockAnswer
     db.create_all()
     ensure_schema()
+
+    # Inicializar o actualizar Superusuario desde configuración (.env)
+    superuser_email = Config.SUPERUSER_EMAIL
+    superuser_pass = Config.SUPERUSER_PASSWORD
+    superuser_name = Config.SUPERUSER_USERNAME
+
+    superuser = User.query.filter((User.email == superuser_email) | (User.role == 'superuser')).first()
+    if not superuser:
+        superuser = User(username=superuser_name, email=superuser_email, role='superuser')
+        superuser.set_password(superuser_pass)
+        db.session.add(superuser)
+        db.session.commit()
+        print(f"Superusuario '{superuser_name}' ({superuser_email}) creado exitosamente.")
+    else:
+        superuser.role = 'superuser'
+        superuser.email = superuser_email
+        superuser.username = superuser_name
+        superuser.set_password(superuser_pass)
+        db.session.commit()
     
     if not User.query.filter_by(role='instructor').first():
         teacher = User(username="Profesor Principal", email="profesor@capacitacion.com", role="instructor")
@@ -82,16 +101,21 @@ def create_app():
     with app.app_context():
         init_db()
 
-    # Registrar Blueprints (Iremos creando las carpetas en el siguiente paso)
+    # Registrar Blueprints
     from app.blueprints.auth import auth_bp
     from app.blueprints.questions import questions_bp
     from app.blueprints.exams import exams_bp
     from app.blueprints.media import media_bp
+    from app.blueprints.admin import admin_bp
+    from app.blueprints.learning import learning_bp
     from app.realtime import sockets  # noqa: F401
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(questions_bp)
     app.register_blueprint(exams_bp)
     app.register_blueprint(media_bp)
+    app.register_blueprint(learning_bp)
 
     return app
+
