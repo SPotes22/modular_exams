@@ -4,22 +4,47 @@ from sqlalchemy import inspect
 from app.config import Config
 from app.extensions import db, login_manager, socketio
 
+def _add_column_if_missing(conn, table_columns, table_name, column_name, ddl):
+    if column_name not in table_columns:
+        conn.exec_driver_sql(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}")
+
+
 def ensure_schema():
     inspector = inspect(db.engine)
-    exam_columns = {col['name'] for col in inspector.get_columns('exams')} if inspector.has_table('exams') else set()
-    session_columns = {col['name'] for col in inspector.get_columns('exam_sessions')} if inspector.has_table('exam_sessions') else set()
+    table_names = set(inspector.get_table_names())
+    exam_columns = {col['name'] for col in inspector.get_columns('exams')} if 'exams' in table_names else set()
+    session_columns = {col['name'] for col in inspector.get_columns('exam_sessions')} if 'exam_sessions' in table_names else set()
+    question_columns = {col['name'] for col in inspector.get_columns('questions')} if 'questions' in table_names else set()
+    exam_question_columns = {col['name'] for col in inspector.get_columns('exam_questions')} if 'exam_questions' in table_names else set()
+    attempt_columns = {col['name'] for col in inspector.get_columns('exam_attempts')} if 'exam_attempts' in table_names else set()
+    answer_columns = {col['name'] for col in inspector.get_columns('student_answers')} if 'student_answers' in table_names else set()
+    user_columns = {col['name'] for col in inspector.get_columns('users')} if 'users' in table_names else set()
     with db.engine.begin() as conn:
-        if 'exam_mode' not in exam_columns:
-            conn.exec_driver_sql("ALTER TABLE exams ADD COLUMN exam_mode VARCHAR(30) DEFAULT 'instant_feedback'")
-        if 'source_bank_id' not in exam_columns:
-            conn.exec_driver_sql("ALTER TABLE exams ADD COLUMN source_bank_id INTEGER")
-        if 'random_question_count' not in exam_columns:
-            conn.exec_driver_sql("ALTER TABLE exams ADD COLUMN random_question_count INTEGER")
-        if 'expected_students' not in session_columns:
-            conn.exec_driver_sql("ALTER TABLE exam_sessions ADD COLUMN expected_students INTEGER DEFAULT 0")
+        _add_column_if_missing(conn, exam_columns, 'exams', 'exam_mode', "VARCHAR(30) DEFAULT 'instant_feedback'")
+        _add_column_if_missing(conn, exam_columns, 'exams', 'source_bank_id', 'INTEGER')
+        _add_column_if_missing(conn, exam_columns, 'exams', 'random_question_count', 'INTEGER')
+        _add_column_if_missing(conn, exam_columns, 'exams', 'instructions', 'TEXT')
+        _add_column_if_missing(conn, exam_columns, 'exams', 'group_id', 'INTEGER')
+        _add_column_if_missing(conn, exam_columns, 'exams', 'status', "VARCHAR(20) DEFAULT 'DRAFT'")
+        _add_column_if_missing(conn, exam_columns, 'exams', 'allow_multiple_attempts', 'BOOLEAN DEFAULT 0')
+        _add_column_if_missing(conn, exam_columns, 'exams', 'max_attempts', 'INTEGER DEFAULT 1')
+        _add_column_if_missing(conn, exam_columns, 'exams', 'created_at', 'DATETIME')
+        _add_column_if_missing(conn, exam_columns, 'exams', 'updated_at', 'DATETIME')
+        _add_column_if_missing(conn, session_columns, 'exam_sessions', 'expected_students', 'INTEGER DEFAULT 0')
+        _add_column_if_missing(conn, session_columns, 'exam_sessions', 'question_order', "VARCHAR(20) DEFAULT 'original'")
+        _add_column_if_missing(conn, question_columns, 'questions', 'default_points', 'FLOAT DEFAULT 1.0')
+        _add_column_if_missing(conn, question_columns, 'questions', 'created_at', 'DATETIME')
+        _add_column_if_missing(conn, question_columns, 'questions', 'updated_at', 'DATETIME')
+        _add_column_if_missing(conn, exam_question_columns, 'exam_questions', 'order_index', 'INTEGER DEFAULT 1')
+        _add_column_if_missing(conn, attempt_columns, 'exam_attempts', 'attempt_number', 'INTEGER DEFAULT 1')
+        _add_column_if_missing(conn, attempt_columns, 'exam_attempts', 'earned_points', 'FLOAT DEFAULT 0')
+        _add_column_if_missing(conn, attempt_columns, 'exam_attempts', 'max_points', 'FLOAT DEFAULT 0')
+        _add_column_if_missing(conn, answer_columns, 'student_answers', 'answer_text', 'TEXT')
+        _add_column_if_missing(conn, answer_columns, 'student_answers', 'points_awarded', 'FLOAT DEFAULT 0')
+        _add_column_if_missing(conn, user_columns, 'users', 'default_exam_view', "VARCHAR(40) DEFAULT 'questions'")
 
 def init_db():
-    from app.models import User, Bank, Question, QuestionOption, Exam, ExamQuestion, Learning, LearningModule, Lesson, Block, LearningProgress, BlockAnswer
+    from app.models import User, Bank, Question, QuestionOption, Exam, ExamQuestion, ExamClass, ExamGroup, Learning, LearningModule, Lesson, Block, LearningProgress, BlockAnswer
     db.create_all()
     ensure_schema()
 

@@ -2,7 +2,7 @@
 {% block title %}Panel de Control{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Panel del Instructor</h2>
+<h2 class="mb-4">Panel del Instructor</h2><div class="mb-4 d-flex gap-2 flex-wrap"><a class="btn btn-primary" href="{{ url_for('questions.mis_preguntas') }}">Mis preguntas</a><a class="btn btn-primary" href="{{ url_for('exams.library') }}">Mis exámenes</a><a class="btn btn-primary" href="{{ url_for('exams.classes') }}">Mis clases</a><a class="btn btn-outline-primary" href="{{ url_for('exams.history') }}">Historial</a></div><form method="post" action="{{ url_for('exams.update_preferences') }}" class="card card-body mb-4"><label class="form-label">Vista inicial</label><select name="default_exam_view" class="form-select" style="max-width:320px"><option value="questions">Mis preguntas</option><option value="exams">Mis exámenes</option><option value="classes">Mis clases</option><option value="learning">Planes de capacitación</option></select><button class="btn btn-sm btn-secondary mt-2" style="max-width:160px">Guardar preferencia</button></form>
 
 <div class="row">
     <!-- Crear Banco -->

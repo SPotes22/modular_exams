@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Crear examen{% endblock %}
+{% block content %}
+<style>.socrative-card{background:white;border:1px solid #e7eef4;border-radius:18px;box-shadow:0 8px 24px rgba(20,50,80,.06)}.question-row{border-top:1px solid #e7eef4;padding:1.4rem 0}.action-rail .btn{border-radius:12px}.correct-pill{background:#51c46b;color:white;border-radius:999px;padding:.1rem .55rem;font-size:.8rem}</style>
+{% if not exam %}
+<div class="socrative-card p-4 mx-auto" style="max-width:720px">
+  <h1 class="h3 mb-3">Crear examen</h1>
+  <form method="post">
+    <label class="form-label">Nombre del examen</label><input name="title" class="form-control form-control-lg" required>
+    <label class="form-label mt-3">Duración</label><input type="number" name="duration" value="30" min="1" class="form-control">
+    <button class="btn btn-primary mt-4">Crear examen vacío</button>
+  </form>
+</div>
+{% else %}
+<form method="post" class="socrative-card p-4 mb-4">
+  <div class="d-flex justify-content-between gap-3 align-items-start flex-wrap">
+    <div class="flex-grow-1"><small class="text-muted">Personal</small><input name="title" class="form-control form-control-lg fw-bold mt-2" value="{{ exam.title }}" required></div>
+    <button class="btn btn-info text-primary fw-bold rounded-pill px-4">Guardar cambios</button>
+  </div>
+  <div class="row g-3 mt-3">
+    <div class="col-md-6"><label class="form-label">Instrucciones</label><textarea name="instructions" class="form-control" rows="2">{{ exam.instructions or '' }}</textarea></div>
+    <div class="col-md-2"><label class="form-label">Minutos</label><input type="number" name="duration_minutes" value="{{ exam.duration_minutes }}" class="form-control" min="1"></div>
+    <div class="col-md-2"><label class="form-label">Intentos</label><input type="number" name="max_attempts" value="{{ exam.max_attempts or 1 }}" class="form-control" min="1"></div>
+    <div class="col-md-2"><label class="form-label">Modo</label><select name="exam_mode" class="form-select"><option value="instant_feedback">Instant</option><option value="open_navigation" {% if exam.exam_mode=='open_navigation' %}selected{% endif %}>Open</option><option value="teacher_paced" {% if exam.exam_mode=='teacher_paced' %}selected{% endif %}>Teacher</option></select></div>
+    <div class="col-12"><label class="form-check"><input type="checkbox" name="allow_multiple_attempts" class="form-check-input" {% if exam.allow_multiple_attempts %}checked{% endif %}> Permitir múltiples intentos</label></div>
+  </div>
+  {% for eq in exam.questions %}
+  <div class="question-row d-flex gap-3">
+    <div class="fs-5 fw-bold text-primary">{{ loop.index }}.</div><div class="flex-grow-1">
+      <div class="fw-semibold">{{ eq.question.statement }}</div><div class="small text-muted">Tipo: {{ eq.question.question_type }} · Banco: {{ eq.question.bank.name }}</div>
+      {% if eq.question.image_url %}<img src="{{ eq.question.image_url }}" class="img-fluid rounded mt-2" style="max-height:180px">{% endif %}
+      <div class="mt-2">{% for opt in eq.question.options %}<div><span class="badge bg-light text-dark">{{ loop.index }}</span> {{ opt.option_text }} {% if opt.is_correct %}<span class="correct-pill">correcta</span>{% endif %}</div>{% endfor %}</div>
+      <label class="form-label mt-3">Puntos en este examen</label><input type="number" step="0.1" min="0.1" name="points_{{ eq.question_id }}" value="{{ eq.points }}" class="form-control" style="max-width:130px">
+    </div><div class="action-rail d-grid gap-2">
+      <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='up') }}" formmethod="post" class="btn btn-outline-secondary btn-sm" {% if loop.first %}disabled{% endif %}>↑</button>
+      <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='down') }}" formmethod="post" class="btn btn-outline-secondary btn-sm" {% if loop.last %}disabled{% endif %}>↓</button>
+      <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='duplicate') }}" formmethod="post" class="btn btn-outline-info btn-sm">Copiar</button>
+      <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='remove') }}" formmethod="post" class="btn btn-outline-danger btn-sm" onclick="return confirm('Quitar del examen sin borrar del banco?')">Eliminar</button>
+    </div>
+  </div>{% else %}<div class="text-center text-muted py-5">Examen vacío. Agrega preguntas del banco, crea una nueva o selecciona preguntas al azar.</div>{% endfor %}
+</form>
+<div class="row g-4"><div class="col-lg-6"><div class="socrative-card p-4"><h3 class="h5">+ Banco de preguntas</h3><form method="post" action="{{ url_for('exams.add_bank_questions', exam_id=exam.id) }}"><div class="mb-3" style="max-height:260px;overflow:auto">{% for q in all_questions %}<label class="d-block border-bottom py-2"><input type="checkbox" name="question_ids" value="{{ q.id }}"> {{ q.statement }} <small class="text-muted">({{ q.question_type }})</small></label>{% endfor %}</div><button class="btn btn-primary">Agregar seleccionadas</button></form><hr><form method="post" action="{{ url_for('exams.add_bank_questions', exam_id=exam.id) }}"><label>Cantidad aleatoria</label><input type="number" name="random_count" min="1" class="form-control mb-2"><button class="btn btn-outline-primary">Seleccionar preguntas al azar</button></form></div></div><div class="col-lg-6"><div class="socrative-card p-4"><h3 class="h5">+ Crear pregunta</h3><form method="post" action="{{ url_for('exams.create_question_inside_exam', exam_id=exam.id) }}">{% include '_question_form_fields.html' %}<button class="btn btn-success mt-3">Guardar y agregar</button></form></div></div></div>
+<div class="mt-4"><a class="btn btn-outline-secondary" href="{{ url_for('exams.library') }}">Biblioteca</a> <a class="btn btn-success" href="{{ url_for('exams.configure_session', exam_id=exam.id) }}">Crear sala</a></div>
+{% endif %}
+{% endblock %}

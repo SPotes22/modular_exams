@@ -10,7 +10,9 @@ def home():
         if current_user.role in ['superuser', 'admin']:
             return redirect(url_for('admin.dashboard'))
         elif current_user.role == 'instructor':
-            return redirect(url_for('exams.instructor_dashboard'))
+            view = getattr(current_user, 'default_exam_view', 'questions')
+            endpoint = {'questions': 'questions.mis_preguntas', 'exams': 'exams.library', 'classes': 'exams.classes', 'learning': 'learning.instructor_dashboard'}.get(view, 'exams.instructor_dashboard')
+            return redirect(url_for(endpoint))
         return redirect(url_for('auth.student_join_exam'))
     return render_template('login.html')
 
@@ -28,7 +30,9 @@ def login():
                 return redirect(url_for('admin.dashboard'))
             elif user.role == 'instructor':
                 flash(f'Bienvenido Profesor {user.username}', 'success')
-                return redirect(url_for('exams.instructor_dashboard'))
+                view = getattr(user, 'default_exam_view', 'questions')
+                endpoint = {'questions': 'questions.mis_preguntas', 'exams': 'exams.library', 'classes': 'exams.classes', 'learning': 'learning.instructor_dashboard'}.get(view, 'exams.instructor_dashboard')
+                return redirect(url_for(endpoint))
             else:
                 flash('Los estudiantes deben ingresar con su código de sala.', 'info')
                 return redirect(url_for('auth.student_join_exam'))

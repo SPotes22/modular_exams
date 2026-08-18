@@ -10,7 +10,7 @@ from app.realtime.manager import session_manager
 from app.modes import registry
 from app.services.exam_content import normalize_room_code
 from app.models import (
-    User, Bank, QuestionOption, Exam, ExamQuestion, 
+    User, Bank, Question, QuestionOption, Exam, ExamQuestion, 
     ExamSession, ExamAttempt, StudentAnswer
 )
 from app.blueprints.exams import exams_bp
@@ -208,10 +208,17 @@ def submit_exam(session_id):
     session_obj = ExamSession.query.get_or_404(session_id)
     
     # Evitar múltiples envíos del mismo estudiante para la misma sesión
-    existing_attempt = ExamAttempt.query.filter_by(student_id=current_user.id, session_id=session_id).first()
-    if existing_attempt:
+    attempt_count = ExamAttempt.query.filter_by(student_id=current_user.id, session_id=session_id).count()
+    if session_obj.status in ['PAUSED', 'paused']:
+        flash('El examen está pausado.', 'warning')
+        return redirect(url_for('exams.presentar_examen', session_id=session_id))
+    if not session_obj.exam.allow_multiple_attempts and attempt_count >= 1:
+        existing_attempt = ExamAttempt.query.filter_by(student_id=current_user.id, session_id=session_id).first()
         flash('Ya has enviado las respuestas para este examen.', 'warning')
         return redirect(url_for('exams.resultados', attempt_id=existing_attempt.id))
+    if session_obj.exam.allow_multiple_attempts and attempt_count >= (session_obj.exam.max_attempts or 1):
+        flash('Alcanzaste el máximo de intentos permitidos.', 'warning')
+        return redirect(url_for('auth.student_join_exam'))
 
     exam = session_obj.exam
     total_possible = 0.0
@@ -277,7 +284,10 @@ def submit_exam(session_id):
         student_id=current_user.id,
         session_id=session_id,
         score=round(final_score, 2),
-        status='completed'
+        status='completed',
+        attempt_number=attempt_count + 1,
+        earned_points=round(earned, 2),
+        max_points=round(total_possible, 2)
     )
     db.session.add(attempt)
     db.session.flush()
@@ -287,7 +297,8 @@ def submit_exam(session_id):
             attempt_id=attempt.id,
             question_id=ans_data['question_id'],
             selected_option_id=ans_data.get('selected_option_id'),
-            is_correct=ans_data['is_correct']
+            is_correct=ans_data['is_correct'],
+            points_awarded=0.0
         )
         db.session.add(sa)
     
@@ -403,10 +414,253 @@ def start_session_ajax(session_id):
     if session_obj.exam.instructor_id != current_user.id:
         return {'error': 'Acceso denegado'}, 403
 
-    session_obj.status = 'in_progress'
+    session_obj.status = 'RUNNING'
     db.session.commit()
     realtime_session = session_manager.get_or_create_by_db_session(session_obj)
-    realtime_session.status = 'in_progress'
+    realtime_session.status = 'RUNNING'
     registry.get(realtime_session.mode, socketio, session_manager).on_start(realtime_session)
 
     return {'success': True, 'status': session_obj.status}
+
+@exams_bp.route('/instructor/exams')
+@login_required
+def library():
+    if current_user.role != 'instructor':
+        return redirect(url_for('auth.home'))
+    from app.models import ExamClass, ExamGroup
+    exams = Exam.query.filter_by(instructor_id=current_user.id).order_by(Exam.updated_at.desc().nullslast(), Exam.id.desc()).all()
+    classes = ExamClass.query.filter_by(instructor_id=current_user.id).order_by(ExamClass.name).all()
+    groups = ExamGroup.query.filter_by(instructor_id=current_user.id).order_by(ExamGroup.name).all()
+    return render_template('exam_library.html', exams=exams, classes=classes, groups=groups)
+
+@exams_bp.route('/instructor/exam/new', methods=['GET', 'POST'])
+@login_required
+def new_exam_builder():
+    if current_user.role != 'instructor':
+        return redirect(url_for('auth.home'))
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        if not title:
+            flash('El nombre del examen es obligatorio.', 'danger')
+            return redirect(url_for('exams.new_exam_builder'))
+        exam = Exam(title=title, instructor_id=current_user.id, duration_minutes=request.form.get('duration', type=int, default=30))
+        db.session.add(exam)
+        db.session.commit()
+        return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+    return render_template('exam_builder.html', exam=None, banks=Bank.query.filter_by(created_by=current_user.id).all(), all_questions=[])
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_exam_builder(exam_id):
+    if current_user.role != 'instructor':
+        return redirect(url_for('auth.home'))
+    exam = Exam.query.get_or_404(exam_id)
+    if exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        if not title:
+            flash('El nombre del examen es obligatorio.', 'danger')
+            return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+        exam.title = title
+        exam.instructions = request.form.get('instructions', '').strip() or None
+        exam.duration_minutes = request.form.get('duration_minutes', type=int, default=30)
+        exam.exam_mode = request.form.get('exam_mode', 'instant_feedback')
+        exam.allow_multiple_attempts = bool(request.form.get('allow_multiple_attempts'))
+        exam.max_attempts = max(request.form.get('max_attempts', type=int, default=1), 1)
+        for eq in exam.questions:
+            eq.points = max(request.form.get(f'points_{eq.question_id}', type=float, default=eq.points), 0.1)
+        db.session.commit()
+        flash('Cambios del examen guardados.', 'success')
+        return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+    banks = Bank.query.filter_by(created_by=current_user.id).all()
+    bank_ids = [b.id for b in banks]
+    all_questions = Question.query.filter(Question.bank_id.in_(bank_ids)).order_by(Question.updated_at.desc().nullslast(), Question.id.desc()).all() if bank_ids else []
+    return render_template('exam_builder.html', exam=exam, banks=banks, all_questions=all_questions)
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/add-bank', methods=['POST'])
+@login_required
+def add_bank_questions(exam_id):
+    from app.services.exam_builder import add_question_to_exam, random_questions_for_exam
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    bank_ids = [b.id for b in Bank.query.filter_by(created_by=current_user.id).all()]
+    selected_ids = [int(x) for x in request.form.getlist('question_ids')]
+    if request.form.get('random_count'):
+        available = Question.query.filter(Question.bank_id.in_(bank_ids)).all()
+        try:
+            selected = random_questions_for_exam(exam, available, request.form.get('random_count', type=int))
+            selected_ids = [q.id for q in selected]
+        except ValueError as exc:
+            flash(str(exc), 'danger')
+            return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+    for q in Question.query.filter(Question.id.in_(selected_ids), Question.bank_id.in_(bank_ids)).all():
+        add_question_to_exam(exam, q)
+    db.session.commit()
+    flash('Preguntas agregadas al examen.', 'success')
+    return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/question/create', methods=['POST'])
+@login_required
+def create_question_inside_exam(exam_id):
+    from app.services.exam_builder import add_question_to_exam, save_question_payload
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    bank_id = request.form.get('bank_id', type=int)
+    bank = Bank.query.get_or_404(bank_id) if bank_id else None
+    if not bank or bank.created_by != current_user.id:
+        flash('Selecciona un banco propio para guardar la pregunta.', 'danger')
+        return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+    q = Question(bank_id=bank.id, statement='Temporal')
+    db.session.add(q)
+    try:
+        save_question_payload(q, request.form)
+        db.session.flush()
+        add_question_to_exam(exam, q, q.default_points)
+        db.session.commit()
+        flash('Pregunta creada y agregada al examen.', 'success')
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), 'danger')
+    return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/question/<int:question_id>/<action>', methods=['POST'])
+@login_required
+def exam_question_action(exam_id, question_id, action):
+    from app.services.exam_builder import duplicate_question, add_question_to_exam
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    eq = ExamQuestion.query.get_or_404((exam_id, question_id))
+    if action == 'remove':
+        db.session.delete(eq)
+    elif action == 'duplicate':
+        qcopy = duplicate_question(eq.question)
+        db.session.flush()
+        add_question_to_exam(exam, qcopy, eq.points)
+    elif action in {'up', 'down'}:
+        ordered = list(exam.questions)
+        idx = ordered.index(eq)
+        swap_idx = idx - 1 if action == 'up' else idx + 1
+        if 0 <= swap_idx < len(ordered):
+            ordered[idx].order_index, ordered[swap_idx].order_index = ordered[swap_idx].order_index, ordered[idx].order_index
+    else:
+        return 'Acción no soportada', 400
+    db.session.commit()
+    return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/duplicate', methods=['POST'])
+@login_required
+def duplicate_exam(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    copy = Exam(title=f'{exam.title} (copia)', instructions=exam.instructions, duration_minutes=exam.duration_minutes, passing_score=exam.passing_score, exam_mode=exam.exam_mode, instructor_id=current_user.id, allow_multiple_attempts=exam.allow_multiple_attempts, max_attempts=exam.max_attempts)
+    db.session.add(copy); db.session.flush()
+    for eq in exam.questions:
+        db.session.add(ExamQuestion(exam_id=copy.id, question_id=eq.question_id, points=eq.points, order_index=eq.order_index))
+    db.session.commit()
+    flash('Examen duplicado.', 'success')
+    return redirect(url_for('exams.library'))
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/delete', methods=['POST'])
+@login_required
+def delete_exam(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    db.session.delete(exam); db.session.commit(); flash('Examen eliminado.', 'info')
+    return redirect(url_for('exams.library'))
+
+@exams_bp.route('/instructor/session/configure/<int:exam_id>', methods=['GET', 'POST'])
+@login_required
+def configure_session(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    if request.method == 'POST':
+        code = normalize_room_code(''.join(random.choices(string.ascii_uppercase + string.digits, k=6)))
+        session = ExamSession(exam_id=exam.id, session_code=code, status='READY', expected_students=request.form.get('expected_students', type=int, default=0), question_order=request.form.get('question_order', 'original'))
+        db.session.add(session); db.session.commit()
+        return redirect(url_for('exams.instructor_lobby', session_id=session.id))
+    return render_template('session_config.html', exam=exam)
+
+@exams_bp.route('/instructor/session/<int:session_id>/<action>', methods=['POST'])
+@login_required
+def control_session(session_id, action):
+    allowed = {'pause': 'PAUSED', 'resume': 'RUNNING', 'finish': 'FINISHED', 'start': 'RUNNING'}
+    session = ExamSession.query.get_or_404(session_id)
+    if current_user.role != 'instructor' or session.exam.instructor_id != current_user.id or action not in allowed:
+        return 'Acceso denegado', 403
+    session.status = allowed[action]
+    db.session.commit()
+    event = {'pause': 'exam_paused', 'resume': 'exam_resumed', 'finish': 'exam_finished', 'start': 'exam_started'}[action]
+    socketio.emit(event, {'session_id': session.id, 'status': session.status}, to=f"session_{session.session_code}")
+    flash(f'Sesión actualizada: {session.status}', 'success')
+    return redirect(url_for('exams.instructor_lobby', session_id=session.id))
+
+@exams_bp.route('/instructor/classes', methods=['GET', 'POST'])
+@login_required
+def classes():
+    from app.models import ExamClass
+    if current_user.role != 'instructor':
+        return redirect(url_for('auth.home'))
+    if request.method == 'POST':
+        cls = ExamClass(name=request.form.get('name', '').strip(), subject=request.form.get('subject', '').strip(), description=request.form.get('description', '').strip(), instructor_id=current_user.id)
+        if not cls.name:
+            flash('El nombre de la clase es obligatorio.', 'danger')
+        else:
+            db.session.add(cls); db.session.commit(); flash('Clase creada.', 'success')
+    return render_template('exam_classes.html', classes=ExamClass.query.filter_by(instructor_id=current_user.id).all(), exams=Exam.query.filter_by(instructor_id=current_user.id).all())
+
+@exams_bp.route('/instructor/class/<int:class_id>/assign', methods=['POST'])
+@login_required
+def assign_exam_class(class_id):
+    from app.models import ExamClass
+    cls = ExamClass.query.get_or_404(class_id)
+    exam = Exam.query.get_or_404(request.form.get('exam_id', type=int))
+    if current_user.role != 'instructor' or cls.instructor_id != current_user.id or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    if exam not in cls.exams:
+        cls.exams.append(exam)
+    db.session.commit(); flash('Examen asignado a la clase.', 'success')
+    return redirect(url_for('exams.classes'))
+
+@exams_bp.route('/instructor/history')
+@login_required
+def history():
+    if current_user.role != 'instructor':
+        return redirect(url_for('auth.home'))
+    sessions = ExamSession.query.join(Exam).filter(Exam.instructor_id == current_user.id).order_by(ExamSession.created_at.desc()).all()
+    return render_template('exam_history.html', sessions=sessions)
+
+@exams_bp.route('/instructor/results')
+@login_required
+def results_overview():
+    if current_user.role != 'instructor':
+        return redirect(url_for('auth.home'))
+    subject = request.args.get('subject', '')
+    attempts = ExamAttempt.query.join(ExamSession).join(Exam).filter(Exam.instructor_id == current_user.id).order_by(ExamAttempt.completed_at.desc()).all()
+    if subject:
+        attempts = [a for a in attempts if any(c.subject == subject for c in a.session.exam.classes)]
+    subjects = sorted({c.subject for e in Exam.query.filter_by(instructor_id=current_user.id).all() for c in e.classes if c.subject})
+    return render_template('exam_results_overview.html', attempts=attempts, subjects=subjects, subject=subject)
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/export/<answers>')
+@login_required
+def export_exam_document(exam_id, answers):
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    return render_template('exam_export.html', exam=exam, include_answers=(answers == 'with-answers'))
+
+@exams_bp.route('/instructor/preferences', methods=['POST'])
+@login_required
+def update_preferences():
+    if current_user.role != 'instructor':
+        return 'Acceso denegado', 403
+    current_user.default_exam_view = request.form.get('default_exam_view', 'questions')
+    db.session.commit(); flash('Preferencia guardada.', 'success')
+    return redirect(url_for('exams.instructor_dashboard'))
