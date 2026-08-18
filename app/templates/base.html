@@ -18,10 +18,12 @@
                         <a class="nav-link text-white fw-bold me-2" href="{{ url_for('admin.dashboard') }}"><i class="bi bi-shield-lock-fill me-1"></i>Panel Superusuario</a>
                     {% endif %}
                     {% if current_user.role == 'instructor' or current_user.role in ['superuser', 'admin'] %}
-                        <a class="nav-link text-white" href="{{ url_for('exams.instructor_dashboard') }}"><i class="bi bi-journal-text me-1"></i>Exámenes</a>
-                        <a class="nav-link text-white" href="{{ url_for('learning.instructor_dashboard') }}"><i class="bi bi-boxes me-1"></i>Learning Builder</a>
-                        <a class="nav-link text-white" href="{{ url_for('questions.mis_preguntas') }}">Banco Preguntas</a>
-                        <a class="nav-link text-white" href="{{ url_for('exams.exam_reports') }}">Reportes</a>
+                        <a class="nav-link text-white" href="{{ url_for('questions.mis_preguntas') }}">Mis preguntas</a>
+                        <a class="nav-link text-white" href="{{ url_for('exams.library') }}">Mis exámenes</a>
+                        <a class="nav-link text-white" href="{{ url_for('exams.classes') }}">Mis clases</a>
+                        <a class="nav-link text-white" href="{{ url_for('learning.instructor_dashboard') }}"><i class="bi bi-boxes me-1"></i>Planes</a>
+                        <a class="nav-link text-white" href="{{ url_for('exams.history') }}">Historial</a>
+                        <a class="nav-link text-white" href="{{ url_for('exams.results_overview') }}">Resultados</a>
                     {% else %}
                         <a class="nav-link text-white" href="{{ url_for('learning.student_catalog') }}"><i class="bi bi-book me-1"></i>Mis Cursos</a>
                     {% endif %}

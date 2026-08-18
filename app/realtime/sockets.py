@@ -72,7 +72,7 @@ def handle_answer_submitted(data):
     session = session_manager.get_or_create_by_code(room_code)
     student_id = data.get('student_id') or (current_user.id if current_user.is_authenticated else None)
     question_id = int(data.get('question_id') or 0)
-    if not session or session.status != 'in_progress' or session.status == 'finished':
+    if not session or session.status not in ['in_progress', 'RUNNING'] or session.status == 'finished':
         emit(events.ERROR, {'message': 'Examen no disponible'})
         return
     student = session.students.get(int(student_id)) if student_id else None
