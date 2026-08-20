@@ -1,8 +1,273 @@
-<label class="form-label">Banco</label><select name="bank_id" class="form-select" required>{% for bank in banks %}<option value="{{ bank.id }}">{{ bank.name }}</option>{% endfor %}</select>
-<label class="form-label mt-2">Enunciado</label><textarea name="statement" class="form-control" required></textarea>
-<div class="row"><div class="col"><label class="form-label mt-2">Tipo</label><select name="question_type" class="form-select question-type-select"><option value="multiple_choice">Selección única</option><option value="multiple_select">Selección múltiple</option><option value="true_false">Verdadero/Falso</option><option value="open_answer">Respuesta abierta</option><option value="matching">Emparejamiento</option><option value="ordering">Ordenamiento</option></select></div><div class="col"><label class="form-label mt-2">Puntos</label><input type="number" step="0.1" min="0.1" name="default_points" value="1" class="form-control"></div></div>
-<label class="form-label mt-2">Opciones (marca correctas por índice)</label><input name="options[]" class="form-control mb-1" placeholder="Opción 1"><input name="options[]" class="form-control mb-1" placeholder="Opción 2"><label><input type="checkbox" name="correct_options[]" value="0"> Opción 1 correcta</label> <label><input type="checkbox" name="correct_options[]" value="1"> Opción 2 correcta</label>
-<label class="form-label mt-2">V/F correcto</label><select name="true_false_correct" class="form-select"><option value="true">Verdadero</option><option value="false">Falso</option></select>
-<label class="form-label mt-2">Categoría</label><input name="category" class="form-control" value="General">
-<label class="form-label mt-2">Imagen URL</label><input name="image_url" class="form-control" placeholder="/static/uploads/...">
-<label class="form-label mt-2">Retroalimentación</label><textarea name="feedback_text" maxlength="3000" class="form-control" rows="3"></textarea>
+<div class="row g-3">
+  <div class="col-md-7">
+    <label class="form-label fw-semibold"><i class="bi bi-folder2-open me-1 text-primary"></i>Banco de preguntas</label>
+    <select name="bank_id" class="form-select" required>
+      {% for bank in banks %}
+        <option value="{{ bank.id }}">{{ bank.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-5">
+    <label class="form-label fw-semibold"><i class="bi bi-tag me-1 text-primary"></i>Categoría</label>
+    <input name="category" class="form-control" value="General" placeholder="ej. Matemática, Historia">
+  </div>
+
+  <div class="col-12">
+    <label class="form-label fw-semibold"><i class="bi bi-card-heading me-1 text-primary"></i>Enunciado de la pregunta</label>
+    <textarea name="statement" class="form-control" rows="3" placeholder="Escribe aquí el enunciado principal..." required></textarea>
+  </div>
+
+  <div class="col-md-7">
+    <label class="form-label fw-semibold"><i class="bi bi-ui-checks me-1 text-primary"></i>Tipo de pregunta</label>
+    <select name="question_type" class="form-select question-type-select" onchange="toggleQuestionTypeFields(this)">
+      <option value="multiple_choice" selected>Selección única</option>
+      <option value="multiple_select">Selección múltiple</option>
+      <option value="true_false">Verdadero / Falso</option>
+      <option value="open_answer">Respuesta abierta (Ensayo)</option>
+      <option value="matching">Emparejamiento (Parejas)</option>
+      <option value="ordering">Ordenamiento (Secuencia)</option>
+    </select>
+  </div>
+
+  <div class="col-md-5">
+    <label class="form-label fw-semibold"><i class="bi bi-star me-1 text-primary"></i>Puntos por defecto</label>
+    <input type="number" step="0.1" min="0.1" name="default_points" value="1" class="form-control">
+  </div>
+</div>
+
+<!-- Dynamic Fields Container -->
+<div class="q-dynamic-container mt-4 p-3 bg-light rounded-3 border">
+  <!-- Multiple Choice / Multiple Select -->
+  <div class="q-type-group q-options-group">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <label class="form-label fw-bold mb-0"><i class="bi bi-list-check me-1"></i>Opciones de respuesta</label>
+      <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="addOptionRow(this)">
+        <i class="bi bi-plus-lg me-1"></i>Agregar opción
+      </button>
+    </div>
+    <p class="text-muted small mb-3">Ingresa las opciones y marca la casilla de verificación de la(s) respuesta(s) correcta(s).</p>
+    <div class="options-wrapper d-grid gap-2">
+      <div class="input-group align-items-center option-row">
+        <div class="input-group-text bg-white">
+          <input type="checkbox" name="correct_options[]" value="0" class="form-check-input mt-0" title="Marcar como correcta">
+        </div>
+        <input name="options[]" class="form-control" placeholder="Opción 1">
+        <button type="button" class="btn btn-outline-danger" onclick="removeOptionRow(this)" title="Eliminar opción"><i class="bi bi-trash"></i></button>
+      </div>
+      <div class="input-group align-items-center option-row">
+        <div class="input-group-text bg-white">
+          <input type="checkbox" name="correct_options[]" value="1" class="form-check-input mt-0" title="Marcar como correcta">
+        </div>
+        <input name="options[]" class="form-control" placeholder="Opción 2">
+        <button type="button" class="btn btn-outline-danger" onclick="removeOptionRow(this)" title="Eliminar opción"><i class="bi bi-trash"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- True / False -->
+  <div class="q-type-group q-tf-group d-none">
+    <label class="form-label fw-bold"><i class="bi bi-toggle-on me-1"></i>Respuesta Correcta</label>
+    <select name="true_false_correct" class="form-select">
+      <option value="true">Verdadero</option>
+      <option value="false">Falso</option>
+    </select>
+  </div>
+
+  <!-- Open Answer -->
+  <div class="q-type-group q-open-group d-none">
+    <div class="alert alert-info mb-0 d-flex align-items-center">
+      <i class="bi bi-info-circle fs-4 me-2"></i>
+      <div>Las preguntas de respuesta abierta permiten al estudiante escribir una respuesta en texto libre que el instructor puede revisar posteriormente.</div>
+    </div>
+  </div>
+
+  <!-- Matching Pairs -->
+  <div class="q-type-group q-matching-group d-none">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <label class="form-label fw-bold mb-0"><i class="bi bi-arrow-left-right me-1"></i>Pares de emparejamiento</label>
+      <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="addMatchingPairRow(this)">
+        <i class="bi bi-plus-lg me-1"></i>Agregar par
+      </button>
+    </div>
+    <div class="matching-wrapper d-grid gap-2">
+      <div class="row g-2 align-items-center matching-row">
+        <div class="col-5"><input name="left_text[]" class="form-control" placeholder="Concepto (Izq.)"></div>
+        <div class="col-5"><input name="right_text[]" class="form-control" placeholder="Definición (Der.)"></div>
+        <div class="col-2"><button type="button" class="btn btn-outline-danger w-100" onclick="removeMatchingPairRow(this)"><i class="bi bi-trash"></i></button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ordering -->
+  <div class="q-type-group q-ordering-group d-none">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <label class="form-label fw-bold mb-0"><i class="bi bi-sort-numeric-down me-1"></i>Ítems en orden correcto (de 1 a N)</label>
+      <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="addOrderingRow(this)">
+        <i class="bi bi-plus-lg me-1"></i>Agregar ítem
+      </button>
+    </div>
+    <div class="ordering-wrapper d-grid gap-2">
+      <div class="input-group ordering-row">
+        <span class="input-group-text bg-white fw-bold order-num">1</span>
+        <input name="order_item[]" class="form-control" placeholder="Primer elemento de la secuencia">
+        <button type="button" class="btn btn-outline-danger" onclick="removeOrderingRow(this)"><i class="bi bi-trash"></i></button>
+      </div>
+      <div class="input-group ordering-row">
+        <span class="input-group-text bg-white fw-bold order-num">2</span>
+        <input name="order_item[]" class="form-control" placeholder="Segundo elemento de la secuencia">
+        <button type="button" class="btn btn-outline-danger" onclick="removeOrderingRow(this)"><i class="bi bi-trash"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-2">
+  <div class="col-md-6">
+    <label class="form-label fw-semibold"><i class="bi bi-image me-1 text-primary"></i>URL de Imagen (Opcional)</label>
+    <input name="image_url" class="form-control" placeholder="https://... o /static/uploads/...">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label fw-semibold"><i class="bi bi-film me-1 text-primary"></i>URL de Video (Opcional)</label>
+    <input name="video_url" class="form-control" placeholder="https://youtube.com/...">
+  </div>
+
+  <div class="col-12">
+    <div class="d-flex justify-content-between align-items-center">
+      <label class="form-label fw-semibold mb-1"><i class="bi bi-chat-left-text me-1 text-primary"></i>Retroalimentación (Explicación para el alumno)</label>
+      <span class="text-muted small"><span class="char-count">0</span> / 3000 máx</span>
+    </div>
+    <textarea name="feedback_text" maxlength="3000" class="form-control" rows="3" placeholder="Explica por qué la respuesta es correcta o da pistas adicionales..." oninput="updateCharCount(this)"></textarea>
+  </div>
+</div>
+
+<script>
+function toggleQuestionTypeFields(selectEl) {
+  const container = selectEl.closest('form').querySelector('.q-dynamic-container');
+  if (!container) return;
+  const val = selectEl.value;
+  
+  container.querySelectorAll('.q-type-group').forEach(grp => {
+    grp.classList.add('d-none');
+    grp.querySelectorAll('input, select, textarea').forEach(inp => inp.disabled = true);
+  });
+
+  let activeGrp = null;
+  if (val === 'multiple_choice' || val === 'multiple_select') {
+    activeGrp = container.querySelector('.q-options-group');
+  } else if (val === 'true_false') {
+    activeGrp = container.querySelector('.q-tf-group');
+  } else if (val === 'open_answer') {
+    activeGrp = container.querySelector('.q-open-group');
+  } else if (val === 'matching') {
+    activeGrp = container.querySelector('.q-matching-group');
+  } else if (val === 'ordering') {
+    activeGrp = container.querySelector('.q-ordering-group');
+  }
+
+  if (activeGrp) {
+    activeGrp.classList.remove('d-none');
+    activeGrp.querySelectorAll('input, select, textarea').forEach(inp => inp.disabled = false);
+  }
+}
+
+// Enable active group inputs on initial DOM load or modal show
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.question-type-select').forEach(select => {
+    toggleQuestionTypeFields(select);
+  });
+});
+
+function addOptionRow(btn) {
+  const wrapper = btn.closest('.q-options-group').querySelector('.options-wrapper');
+  const count = wrapper.children.length;
+  const div = document.createElement('div');
+  div.className = 'input-group align-items-center option-row';
+  div.innerHTML = `
+    <div class="input-group-text bg-white">
+      <input type="checkbox" name="correct_options[]" value="${count}" class="form-check-input mt-0" title="Marcar como correcta">
+    </div>
+    <input name="options[]" class="form-control" placeholder="Opción ${count + 1}">
+    <button type="button" class="btn btn-outline-danger" onclick="removeOptionRow(this)" title="Eliminar opción"><i class="bi bi-trash"></i></button>
+  `;
+  wrapper.appendChild(div);
+  reindexOptions(wrapper);
+}
+
+function removeOptionRow(btn) {
+  const wrapper = btn.closest('.options-wrapper');
+  if (wrapper.children.length <= 2) {
+    alert('Debe conservar al menos 2 opciones de respuesta.');
+    return;
+  }
+  btn.closest('.option-row').remove();
+  reindexOptions(wrapper);
+}
+
+function reindexOptions(wrapper) {
+  Array.from(wrapper.children).forEach((row, idx) => {
+    const chk = row.querySelector('input[type="checkbox"]');
+    if (chk) chk.value = idx;
+    const txt = row.querySelector('input[name="options[]"]');
+    if (txt && !txt.value) txt.placeholder = `Opción ${idx + 1}`;
+  });
+}
+
+function addMatchingPairRow(btn) {
+  const wrapper = btn.closest('.q-matching-group').querySelector('.matching-wrapper');
+  const div = document.createElement('div');
+  div.className = 'row g-2 align-items-center matching-row';
+  div.innerHTML = `
+    <div class="col-5"><input name="left_text[]" class="form-control" placeholder="Concepto (Izq.)"></div>
+    <div class="col-5"><input name="right_text[]" class="form-control" placeholder="Definición (Der.)"></div>
+    <div class="col-2"><button type="button" class="btn btn-outline-danger w-100" onclick="removeMatchingPairRow(this)"><i class="bi bi-trash"></i></button></div>
+  `;
+  wrapper.appendChild(div);
+}
+
+function removeMatchingPairRow(btn) {
+  const wrapper = btn.closest('.matching-wrapper');
+  if (wrapper.children.length <= 1) {
+    alert('Debe conservar al menos 1 par.');
+    return;
+  }
+  btn.closest('.matching-row').remove();
+}
+
+function addOrderingRow(btn) {
+  const wrapper = btn.closest('.q-ordering-group').querySelector('.ordering-wrapper');
+  const count = wrapper.children.length + 1;
+  const div = document.createElement('div');
+  div.className = 'input-group ordering-row';
+  div.innerHTML = `
+    <span class="input-group-text bg-white fw-bold order-num">${count}</span>
+    <input name="order_item[]" class="form-control" placeholder="Elemento ${count} de la secuencia">
+    <button type="button" class="btn btn-outline-danger" onclick="removeOrderingRow(this)"><i class="bi bi-trash"></i></button>
+  `;
+  wrapper.appendChild(div);
+  reindexOrdering(wrapper);
+}
+
+function removeOrderingRow(btn) {
+  const wrapper = btn.closest('.ordering-wrapper');
+  if (wrapper.children.length <= 2) {
+    alert('Debe conservar al menos 2 elementos.');
+    return;
+  }
+  btn.closest('.ordering-row').remove();
+  reindexOrdering(wrapper);
+}
+
+function reindexOrdering(wrapper) {
+  Array.from(wrapper.children).forEach((row, idx) => {
+    const span = row.querySelector('.order-num');
+    if (span) span.textContent = idx + 1;
+  });
+}
+
+function updateCharCount(textarea) {
+  const counter = textarea.closest('div').querySelector('.char-count');
+  if (counter) counter.textContent = textarea.value.length;
+}
+</script>
+
+

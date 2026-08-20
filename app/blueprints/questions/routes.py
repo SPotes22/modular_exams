@@ -117,6 +117,29 @@ def delete_question(question_id):
     flash('Pregunta eliminada.', 'info')
     return redirect(url_for('questions.mis_preguntas'))
 
+@questions_bp.route('/instructor/questions/bulk-delete', methods=['POST'])
+@login_required
+def bulk_delete_questions():
+    if current_user.role != 'instructor':
+        return "Acceso denegado", 403
+    
+    question_ids = request.form.getlist('question_ids[]')
+    if not question_ids:
+        flash('No seleccionaste preguntas para eliminar.', 'warning')
+        return redirect(url_for('questions.mis_preguntas'))
+    
+    questions = Question.query.filter(Question.id.in_(question_ids)).all()
+    count = 0
+    for q in questions:
+        if q.bank and q.bank.created_by == current_user.id:
+            db.session.delete(q)
+            count += 1
+    
+    db.session.commit()
+    flash(f'Se eliminaron {count} preguntas exitosamente.', 'info')
+    return redirect(url_for('questions.mis_preguntas'))
+
+
 @questions_bp.route('/instructor/question/import-excel', methods=['POST'])
 @login_required
 def import_questions_excel():

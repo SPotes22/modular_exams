@@ -96,3 +96,58 @@ def test_authorization_and_session_controls(app_ctx):
         assert c.post(f'/instructor/session/{session.id}/pause').status_code == 302
         db.session.refresh(session)
         assert session.status == 'PAUSED'
+
+
+def test_bulk_delete_questions(app_ctx):
+    app, teacher, *_ = app_ctx
+    with app.app_context():
+        bank = make_bank(teacher)
+        q1 = Question(bank_id=bank.id, statement='Bulk Q1')
+        q2 = Question(bank_id=bank.id, statement='Bulk Q2')
+        db.session.add_all([q1, q2])
+        db.session.commit()
+        q1_id, q2_id = q1.id, q2.id
+
+    c = app.test_client()
+    login(c, 'teacher@example.com')
+    res = c.post('/instructor/questions/bulk-delete', data={'question_ids[]': [str(q1_id), str(q2_id)]}, follow_redirects=True)
+    assert res.status_code == 200
+
+    with app.app_context():
+        assert Question.query.filter(Question.id.in_([q1_id, q2_id])).count() == 0
+
+
+def test_class_folder_management(app_ctx):
+    from app.models import ExamClass
+    app, teacher, *_ = app_ctx
+    with app.app_context():
+        exam = Exam(title='Exam In Folder', instructor_id=teacher.id)
+        db.session.add(exam)
+        db.session.commit()
+        exam_id = exam.id
+
+    c = app.test_client()
+    login(c, 'teacher@example.com')
+    res = c.post('/instructor/classes', data={'name': 'Física 101', 'subject': 'Física'}, follow_redirects=True)
+    assert res.status_code == 200
+
+    with app.app_context():
+        cls = ExamClass.query.filter_by(name='Física 101').first()
+        assert cls is not None
+        cls_id = cls.id
+
+    c.post(f'/instructor/class/{cls_id}/assign', data={'exam_id': str(exam_id)})
+    with app.app_context():
+        cls = ExamClass.query.get(cls_id)
+        assert len(cls.exams) == 1
+
+    c.post(f'/instructor/class/{cls_id}/remove-exam/{exam_id}')
+    with app.app_context():
+        cls = ExamClass.query.get(cls_id)
+        assert len(cls.exams) == 0
+
+    c.post(f'/instructor/class/{cls_id}/delete')
+    with app.app_context():
+        assert ExamClass.query.get(cls_id) is None
+
+

@@ -625,8 +625,35 @@ def assign_exam_class(class_id):
         return 'Acceso denegado', 403
     if exam not in cls.exams:
         cls.exams.append(exam)
-    db.session.commit(); flash('Examen asignado a la clase.', 'success')
+    db.session.commit(); flash('Examen asignado a la carpeta/clase.', 'success')
     return redirect(url_for('exams.classes'))
+
+@exams_bp.route('/instructor/class/<int:class_id>/remove-exam/<int:exam_id>', methods=['POST'])
+@login_required
+def remove_exam_from_class(class_id, exam_id):
+    from app.models import ExamClass
+    cls = ExamClass.query.get_or_404(class_id)
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or cls.instructor_id != current_user.id or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    if exam in cls.exams:
+        cls.exams.remove(exam)
+        db.session.commit()
+        flash('Examen removido de la carpeta.', 'info')
+    return redirect(url_for('exams.classes'))
+
+@exams_bp.route('/instructor/class/<int:class_id>/delete', methods=['POST'])
+@login_required
+def delete_class(class_id):
+    from app.models import ExamClass
+    cls = ExamClass.query.get_or_404(class_id)
+    if current_user.role != 'instructor' or cls.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    db.session.delete(cls)
+    db.session.commit()
+    flash(f'Carpeta de clase "{cls.name}" eliminada.', 'info')
+    return redirect(url_for('exams.classes'))
+
 
 @exams_bp.route('/instructor/history')
 @login_required

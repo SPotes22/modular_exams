@@ -1,45 +1,455 @@
 {% extends 'base.html' %}
-{% block title %}Crear examen{% endblock %}
+{% block title %}Constructor de Examen - Socrative MyTraining{% endblock %}
+
 {% block content %}
-<style>.socrative-card{background:white;border:1px solid #e7eef4;border-radius:18px;box-shadow:0 8px 24px rgba(20,50,80,.06)}.question-row{border-top:1px solid #e7eef4;padding:1.4rem 0}.action-rail .btn{border-radius:12px}.correct-pill{background:#51c46b;color:white;border-radius:999px;padding:.1rem .55rem;font-size:.8rem}</style>
 {% if not exam %}
-<div class="socrative-card p-4 mx-auto" style="max-width:720px">
-  <h1 class="h3 mb-3">Crear examen</h1>
-  <form method="post">
-    <label class="form-label">Nombre del examen</label><input name="title" class="form-control form-control-lg" required>
-    <label class="form-label mt-3">Duración</label><input type="number" name="duration" value="30" min="1" class="form-control">
-    <button class="btn btn-primary mt-4">Crear examen vacío</button>
+<div class="socrative-card p-5 mx-auto text-center" style="max-width: 650px;">
+  <div class="stat-icon bg-primary-subtle text-primary mx-auto mb-3" style="width: 64px; height: 64px; font-size: 2rem;">
+    <i class="bi bi-file-earmark-plus"></i>
+  </div>
+  <h1 class="h3 fw-bold text-slate-800 mb-2">Crear nuevo examen</h1>
+  <p class="text-muted mb-4">Ingresa el título y la duración para iniciar la construcción de tu evaluación Socrative.</p>
+  <form method="post" class="text-start">
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Nombre del examen</label>
+      <input name="title" class="form-control form-control-lg" placeholder="ej. Examen Parcial de Matemáticas" required autofocus>
+    </div>
+    <div class="mb-4">
+      <label class="form-label fw-semibold">Duración sugerida (minutos)</label>
+      <div class="input-group">
+        <input type="number" name="duration" value="30" min="1" class="form-control">
+        <span class="input-group-text">minutos</span>
+      </div>
+    </div>
+    <button class="btn btn-brand btn-lg w-100 rounded-pill shadow-sm"><i class="bi bi-arrow-right-circle me-2"></i>Crear examen vacío</button>
   </form>
 </div>
 {% else %}
-<form method="post" class="socrative-card p-4 mb-4">
-  <div class="d-flex justify-content-between gap-3 align-items-start flex-wrap">
-    <div class="flex-grow-1"><small class="text-muted">Personal</small><input name="title" class="form-control form-control-lg fw-bold mt-2" value="{{ exam.title }}" required></div>
-    <button class="btn btn-info text-primary fw-bold rounded-pill px-4">Guardar cambios</button>
-  </div>
-  <div class="row g-3 mt-3">
-    <div class="col-md-6"><label class="form-label">Instrucciones</label><textarea name="instructions" class="form-control" rows="2">{{ exam.instructions or '' }}</textarea></div>
-    <div class="col-md-2"><label class="form-label">Minutos</label><input type="number" name="duration_minutes" value="{{ exam.duration_minutes }}" class="form-control" min="1"></div>
-    <div class="col-md-2"><label class="form-label">Intentos</label><input type="number" name="max_attempts" value="{{ exam.max_attempts or 1 }}" class="form-control" min="1"></div>
-    <div class="col-md-2"><label class="form-label">Modo</label><select name="exam_mode" class="form-select"><option value="instant_feedback">Instant</option><option value="open_navigation" {% if exam.exam_mode=='open_navigation' %}selected{% endif %}>Open</option><option value="teacher_paced" {% if exam.exam_mode=='teacher_paced' %}selected{% endif %}>Teacher</option></select></div>
-    <div class="col-12"><label class="form-check"><input type="checkbox" name="allow_multiple_attempts" class="form-check-input" {% if exam.allow_multiple_attempts %}checked{% endif %}> Permitir múltiples intentos</label></div>
-  </div>
-  {% for eq in exam.questions %}
-  <div class="question-row d-flex gap-3">
-    <div class="fs-5 fw-bold text-primary">{{ loop.index }}.</div><div class="flex-grow-1">
-      <div class="fw-semibold">{{ eq.question.statement }}</div><div class="small text-muted">Tipo: {{ eq.question.question_type }} · Banco: {{ eq.question.bank.name }}</div>
-      {% if eq.question.image_url %}<img src="{{ eq.question.image_url }}" class="img-fluid rounded mt-2" style="max-height:180px">{% endif %}
-      <div class="mt-2">{% for opt in eq.question.options %}<div><span class="badge bg-light text-dark">{{ loop.index }}</span> {{ opt.option_text }} {% if opt.is_correct %}<span class="correct-pill">correcta</span>{% endif %}</div>{% endfor %}</div>
-      <label class="form-label mt-3">Puntos en este examen</label><input type="number" step="0.1" min="0.1" name="points_{{ eq.question_id }}" value="{{ eq.points }}" class="form-control" style="max-width:130px">
-    </div><div class="action-rail d-grid gap-2">
-      <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='up') }}" formmethod="post" class="btn btn-outline-secondary btn-sm" {% if loop.first %}disabled{% endif %}>↑</button>
-      <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='down') }}" formmethod="post" class="btn btn-outline-secondary btn-sm" {% if loop.last %}disabled{% endif %}>↓</button>
-      <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='duplicate') }}" formmethod="post" class="btn btn-outline-info btn-sm">Copiar</button>
-      <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='remove') }}" formmethod="post" class="btn btn-outline-danger btn-sm" onclick="return confirm('Quitar del examen sin borrar del banco?')">Eliminar</button>
+
+<!-- Exam Builder Header & Controls -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <div class="d-flex align-items-center gap-2">
+      <h1 class="h2 fw-bold text-slate-800 mb-0"><i class="bi bi-pencil-square text-primary me-2"></i>Constructor de Examen</h1>
+      <span class="badge bg-primary rounded-pill px-3 py-2">Modo: {{ exam.exam_mode or 'instant_feedback' }}</span>
     </div>
-  </div>{% else %}<div class="text-center text-muted py-5">Examen vacío. Agrega preguntas del banco, crea una nueva o selecciona preguntas al azar.</div>{% endfor %}
+    <p class="text-muted mb-0">Organiza el contenido, ajusta puntajes y prepara tu sala de evaluación.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('exams.library') }}" class="btn btn-outline-secondary rounded-pill px-3"><i class="bi bi-arrow-left me-1"></i>Biblioteca</a>
+    <a href="{{ url_for('exams.configure_session', exam_id=exam.id) }}" class="btn btn-success rounded-pill px-4 shadow-sm fw-semibold"><i class="bi bi-play-circle me-1"></i>Crear Sala en Vivo</a>
+  </div>
+</div>
+
+<!-- Score and Question Count Summary Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="stat-card shadow-sm d-flex align-items-center">
+      <div class="stat-icon bg-primary-subtle text-primary me-3"><i class="bi bi-question-lg"></i></div>
+      <div>
+        <div class="text-muted small fw-semibold">Total de Preguntas</div>
+        <div class="fs-4 fw-bold text-slate-800" id="totalQuestionsCount">{{ exam.questions|length }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card shadow-sm d-flex align-items-center">
+      <div class="stat-icon bg-warning-subtle text-warning me-3"><i class="bi bi-star-fill"></i></div>
+      <div>
+        <div class="text-muted small fw-semibold">Puntaje Total Acumulado</div>
+        <div class="fs-4 fw-bold text-slate-800" id="totalScoreCount">
+          {% set total_pts = exam.questions|map(attribute='points')|sum %}
+          {{ total_pts }} pt{{ 's' if total_pts != 1 else '' }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card shadow-sm d-flex align-items-center">
+      <div class="stat-icon bg-info-subtle text-info me-3"><i class="bi bi-clock-history"></i></div>
+      <div>
+        <div class="text-muted small fw-semibold">Tiempo Límite</div>
+        <div class="fs-4 fw-bold text-slate-800">{{ exam.duration_minutes }} min</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Exam Metadata Form -->
+<form method="post" class="socrative-card p-4 mb-4">
+  <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3 flex-wrap gap-2">
+    <h3 class="h5 fw-bold mb-0 text-slate-800"><i class="bi bi-gear-fill text-primary me-2"></i>Configuración del Examen</h3>
+    <button type="submit" class="btn btn-brand rounded-pill px-4 shadow-sm"><i class="bi bi-save me-1"></i>Guardar cambios</button>
+  </div>
+  
+  <div class="row g-3">
+    <div class="col-md-8">
+      <label class="form-label fw-semibold">Título del Examen</label>
+      <input name="title" class="form-control form-control-lg fw-bold" value="{{ exam.title }}" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label fw-semibold">Modo de Evaluación</label>
+      <select name="exam_mode" class="form-select form-select-lg">
+        <option value="instant_feedback" {% if exam.exam_mode=='instant_feedback' %}selected{% endif %}>Feedback Inmediato (Socrative)</option>
+        <option value="open_navigation" {% if exam.exam_mode=='open_navigation' %}selected{% endif %}>Navegación Libre</option>
+        <option value="teacher_paced" {% if exam.exam_mode=='teacher_paced' %}selected{% endif %}>Guiado por Profesor</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label fw-semibold">Instrucciones para los alumnos</label>
+      <textarea name="instructions" class="form-control" rows="2" placeholder="Indicaciones previas a la prueba...">{{ exam.instructions or '' }}</textarea>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-semibold">Duración (minutos)</label>
+      <input type="number" name="duration_minutes" value="{{ exam.duration_minutes }}" class="form-control" min="1">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-semibold">Límite de Intentos</label>
+      <input type="number" name="max_attempts" value="{{ exam.max_attempts or 1 }}" class="form-control" min="1">
+    </div>
+    <div class="col-12">
+      <div class="form-check form-switch">
+        <input type="checkbox" name="allow_multiple_attempts" class="form-check-input" id="allowMultipleAttempts" {% if exam.allow_multiple_attempts %}checked{% endif %}>
+        <label class="form-check-label fw-semibold" for="allowMultipleAttempts">Permitir múltiples intentos por estudiante</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Included Questions Section -->
+  <hr class="my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="h5 fw-bold mb-0 text-slate-800"><i class="bi bi-list-ol text-primary me-2"></i>Preguntas en este examen</h3>
+    <span class="text-muted small">Usa las flechas para reordenar las preguntas.</span>
+  </div>
+
+  {% for eq in exam.questions %}
+    <div class="p-3 bg-light rounded-3 border mb-3 position-relative">
+      <div class="d-flex gap-3 align-items-start">
+        <!-- Number Badge -->
+        <div class="bg-primary text-white rounded-circle fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 1.1rem;">
+          {{ loop.index }}
+        </div>
+        
+        <!-- Question Details -->
+        <div class="flex-grow-1">
+          <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="badge-type badge-{{ eq.question.question_type }}">{{ eq.question.question_type }}</span>
+            <span class="badge bg-white text-dark border small"><i class="bi bi-folder2 me-1"></i>{{ eq.question.bank.name if eq.question.bank else 'Sin Banco' }}</span>
+          </div>
+          <div class="fw-bold fs-6 text-slate-800 mb-2">{{ eq.question.statement }}</div>
+
+          {% if eq.question.image_url %}
+            <img src="{{ eq.question.image_url }}" class="img-fluid rounded border mb-2" style="max-height: 120px;">
+          {% endif %}
+
+          {% if eq.question.options %}
+            <div class="row g-2 mb-2">
+              {% for opt in eq.question.options %}
+                <div class="col-md-6">
+                  <div class="p-1 px-2 rounded border small bg-white {% if opt.is_correct %}border-success text-success fw-bold{% endif %}">
+                    <i class="bi {% if opt.is_correct %}bi-check-circle-fill text-success{% else %}bi-circle text-muted{% endif %} me-1"></i>
+                    {{ opt.option_text }}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="d-flex align-items-center gap-2 mt-2">
+            <label class="form-label small fw-semibold mb-0">Puntos en este examen:</label>
+            <input type="number" step="0.1" min="0.1" name="points_{{ eq.question_id }}" value="{{ eq.points }}" class="form-control form-control-sm eq-point-input" style="max-width: 100px;" onchange="calculateTotalScore()">
+          </div>
+        </div>
+
+        <!-- Action Controls Rail -->
+        <div class="d-flex flex-column gap-1">
+          <button type="button" class="btn btn-outline-primary btn-sm rounded-circle" style="width: 34px; height: 34px;" data-bs-toggle="modal" data-bs-target="#editExamQuestionModal{{ eq.question.id }}" title="Editar pregunta (cambiar tipo o contenido)">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='up') }}" formmethod="post" class="btn btn-outline-secondary btn-sm rounded-circle" style="width: 34px; height: 34px;" title="Mover arriba" {% if loop.first %}disabled{% endif %}>
+            <i class="bi bi-arrow-up"></i>
+          </button>
+          <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='down') }}" formmethod="post" class="btn btn-outline-secondary btn-sm rounded-circle" style="width: 34px; height: 34px;" title="Mover abajo" {% if loop.last %}disabled{% endif %}>
+            <i class="bi bi-arrow-down"></i>
+          </button>
+          <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='duplicate') }}" formmethod="post" class="btn btn-outline-info btn-sm rounded-circle" style="width: 34px; height: 34px;" title="Duplicar en examen">
+            <i class="bi bi-copy"></i>
+          </button>
+          <button formaction="{{ url_for('exams.exam_question_action', exam_id=exam.id, question_id=eq.question_id, action='remove') }}" formmethod="post" class="btn btn-outline-danger btn-sm rounded-circle" style="width: 34px; height: 34px;" onclick="return confirm('¿Quitar del examen?')" title="Quitar del examen">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="text-center py-5 text-muted bg-light rounded-3 border">
+      <i class="bi bi-file-earmark-x fs-1 d-block mb-2 text-secondary"></i>
+      <div class="fw-bold">Examen sin preguntas</div>
+      <p class="small mb-0">Agrega preguntas existentes desde tu banco o crea una nueva pregunta a continuación.</p>
+    </div>
+  {% endfor %}
 </form>
-<div class="row g-4"><div class="col-lg-6"><div class="socrative-card p-4"><h3 class="h5">+ Banco de preguntas</h3><form method="post" action="{{ url_for('exams.add_bank_questions', exam_id=exam.id) }}"><div class="mb-3" style="max-height:260px;overflow:auto">{% for q in all_questions %}<label class="d-block border-bottom py-2"><input type="checkbox" name="question_ids" value="{{ q.id }}"> {{ q.statement }} <small class="text-muted">({{ q.question_type }})</small></label>{% endfor %}</div><button class="btn btn-primary">Agregar seleccionadas</button></form><hr><form method="post" action="{{ url_for('exams.add_bank_questions', exam_id=exam.id) }}"><label>Cantidad aleatoria</label><input type="number" name="random_count" min="1" class="form-control mb-2"><button class="btn btn-outline-primary">Seleccionar preguntas al azar</button></form></div></div><div class="col-lg-6"><div class="socrative-card p-4"><h3 class="h5">+ Crear pregunta</h3><form method="post" action="{{ url_for('exams.create_question_inside_exam', exam_id=exam.id) }}">{% include '_question_form_fields.html' %}<button class="btn btn-success mt-3">Guardar y agregar</button></form></div></div></div>
-<div class="mt-4"><a class="btn btn-outline-secondary" href="{{ url_for('exams.library') }}">Biblioteca</a> <a class="btn btn-success" href="{{ url_for('exams.configure_session', exam_id=exam.id) }}">Crear sala</a></div>
+
+<!-- Question Edit Modals (Independent non-nested forms) -->
+{% for eq in exam.questions %}
+<div class="modal fade" id="editExamQuestionModal{{ eq.question.id }}" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: var(--border-radius-lg);">
+      <form method="post" action="{{ url_for('questions.edit_question', question_id=eq.question.id) }}">
+        <input type="hidden" name="next" value="{{ url_for('exams.edit_exam_builder', exam_id=exam.id) }}">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square text-primary me-2"></i>Editar Pregunta del Examen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="row g-3 mb-3">
+            <div class="col-md-7">
+              <label class="form-label fw-semibold">Banco de preguntas</label>
+              <select name="bank_id" class="form-select">
+                {% for bank in banks %}
+                  <option value="{{ bank.id }}" {% if eq.question.bank_id==bank.id %}selected{% endif %}>{{ bank.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label fw-semibold">Categoría</label>
+              <input name="category" value="{{ eq.question.category or 'General' }}" class="form-control">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Enunciado</label>
+              <textarea name="statement" class="form-control" rows="3" required>{{ eq.question.statement }}</textarea>
+            </div>
+            <div class="col-md-7">
+              <label class="form-label fw-semibold">Tipo de pregunta</label>
+              <select name="question_type" class="form-select question-type-select" onchange="toggleQuestionTypeFields(this)">
+                <option value="multiple_choice" {% if eq.question.question_type=='multiple_choice' %}selected{% endif %}>Selección única</option>
+                <option value="multiple_select" {% if eq.question.question_type=='multiple_select' %}selected{% endif %}>Selección múltiple</option>
+                <option value="true_false" {% if eq.question.question_type=='true_false' %}selected{% endif %}>Verdadero / Falso</option>
+                <option value="open_answer" {% if eq.question.question_type=='open_answer' %}selected{% endif %}>Respuesta abierta</option>
+                <option value="matching" {% if eq.question.question_type=='matching' %}selected{% endif %}>Emparejamiento</option>
+                <option value="ordering" {% if eq.question.question_type=='ordering' %}selected{% endif %}>Ordenamiento</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label fw-semibold">Puntos por defecto</label>
+              <input type="number" step="0.1" min="0.1" name="default_points" value="{{ eq.question.default_points or 1 }}" class="form-control">
+            </div>
+          </div>
+
+          <!-- Dynamic Container for Edit -->
+          <div class="q-dynamic-container p-3 bg-light rounded-3 border">
+            <!-- Multiple choice options edit -->
+            <div class="q-type-group q-options-group {% if eq.question.question_type not in ['multiple_choice', 'multiple_select'] %}d-none{% endif %}">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-bold mb-0">Opciones de respuesta</label>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addOptionRow(this)"><i class="bi bi-plus-lg me-1"></i>Agregar opción</button>
+              </div>
+              <div class="options-wrapper d-grid gap-2">
+                {% for opt in eq.question.options %}
+                  <div class="input-group align-items-center option-row">
+                    <div class="input-group-text bg-white">
+                      <input type="checkbox" name="correct_options[]" value="{{ loop.index0 }}" class="form-check-input mt-0" {% if opt.is_correct %}checked{% endif %}>
+                    </div>
+                    <input name="options[]" value="{{ opt.option_text }}" class="form-control">
+                    <button type="button" class="btn btn-outline-danger" onclick="removeOptionRow(this)"><i class="bi bi-trash"></i></button>
+                  </div>
+                {% else %}
+                  <div class="input-group align-items-center option-row">
+                    <div class="input-group-text bg-white"><input type="checkbox" name="correct_options[]" value="0" class="form-check-input mt-0"></div>
+                    <input name="options[]" class="form-control" placeholder="Opción 1">
+                    <button type="button" class="btn btn-outline-danger" onclick="removeOptionRow(this)"><i class="bi bi-trash"></i></button>
+                  </div>
+                  <div class="input-group align-items-center option-row">
+                    <div class="input-group-text bg-white"><input type="checkbox" name="correct_options[]" value="1" class="form-check-input mt-0"></div>
+                    <input name="options[]" class="form-control" placeholder="Opción 2">
+                    <button type="button" class="btn btn-outline-danger" onclick="removeOptionRow(this)"><i class="bi bi-trash"></i></button>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- True/False edit -->
+            <div class="q-type-group q-tf-group {% if eq.question.question_type != 'true_false' %}d-none{% endif %}">
+              <label class="form-label fw-bold">Respuesta Correcta</label>
+              <select name="true_false_correct" class="form-select">
+                {% set tf_correct = 'true' %}
+                {% for opt in eq.question.options %}
+                  {% if opt.is_correct and opt.option_text == 'Falso' %}{% set tf_correct = 'false' %}{% endif %}
+                {% endfor %}
+                <option value="true" {% if tf_correct == 'true' %}selected{% endif %}>Verdadero</option>
+                <option value="false" {% if tf_correct == 'false' %}selected{% endif %}>Falso</option>
+              </select>
+            </div>
+
+            <!-- Open Answer edit -->
+            <div class="q-type-group q-open-group {% if eq.question.question_type != 'open_answer' %}d-none{% endif %}">
+              <div class="alert alert-info mb-0">Respuesta abierta no requiere opciones precargadas.</div>
+            </div>
+
+            <!-- Matching edit -->
+            <div class="q-type-group q-matching-group {% if eq.question.question_type != 'matching' %}d-none{% endif %}">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-bold mb-0">Pares de emparejamiento</label>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addMatchingPairRow(this)"><i class="bi bi-plus-lg me-1"></i>Agregar par</button>
+              </div>
+              <div class="matching-wrapper d-grid gap-2">
+                {% for pair in eq.question.matching_pairs %}
+                  <div class="row g-2 align-items-center matching-row">
+                    <div class="col-5"><input name="left_text[]" value="{{ pair.left_text }}" class="form-control"></div>
+                    <div class="col-5"><input name="right_text[]" value="{{ pair.right_text }}" class="form-control"></div>
+                    <div class="col-2"><button type="button" class="btn btn-outline-danger w-100" onclick="removeMatchingPairRow(this)"><i class="bi bi-trash"></i></button></div>
+                  </div>
+                {% else %}
+                  <div class="row g-2 align-items-center matching-row">
+                    <div class="col-5"><input name="left_text[]" class="form-control" placeholder="Concepto"></div>
+                    <div class="col-5"><input name="right_text[]" class="form-control" placeholder="Definición"></div>
+                    <div class="col-2"><button type="button" class="btn btn-outline-danger w-100" onclick="removeMatchingPairRow(this)"><i class="bi bi-trash"></i></button></div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- Ordering edit -->
+            <div class="q-type-group q-ordering-group {% if eq.question.question_type != 'ordering' %}d-none{% endif %}">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-bold mb-0">Secuencia de ordenamiento</label>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addOrderingRow(this)"><i class="bi bi-plus-lg me-1"></i>Agregar ítem</button>
+              </div>
+              <div class="ordering-wrapper d-grid gap-2">
+                {% for item in eq.question.order_items|sort(attribute='correct_position') %}
+                  <div class="input-group ordering-row">
+                    <span class="input-group-text bg-white fw-bold order-num">{{ loop.index }}</span>
+                    <input name="order_item[]" value="{{ item.item_text }}" class="form-control">
+                    <button type="button" class="btn btn-outline-danger" onclick="removeOrderingRow(this)"><i class="bi bi-trash"></i></button>
+                  </div>
+                {% else %}
+                  <div class="input-group ordering-row">
+                    <span class="input-group-text bg-white fw-bold order-num">1</span>
+                    <input name="order_item[]" class="form-control" placeholder="Ítem 1">
+                    <button type="button" class="btn btn-outline-danger" onclick="removeOrderingRow(this)"><i class="bi bi-trash"></i></button>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3 mt-2">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">URL de Imagen</label>
+              <input name="image_url" value="{{ eq.question.image_url or '' }}" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">URL de Video</label>
+              <input name="video_url" value="{{ eq.question.video_url or '' }}" class="form-control">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Retroalimentación</label>
+              <textarea name="feedback_text" maxlength="3000" class="form-control" rows="3" oninput="updateCharCount(this)">{{ eq.question.feedback_text or '' }}</textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-brand rounded-pill px-4">Guardar y actualizar pregunta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+
+<!-- Add Questions Panels -->
+<div class="row g-4">
+  <!-- Add from Bank Panel -->
+  <div class="col-lg-6">
+    <div class="socrative-card p-4 h-100">
+      <h3 class="h5 fw-bold mb-3 text-slate-800"><i class="bi bi-collection text-primary me-2"></i>Agregar desde el Banco</h3>
+      
+      <!-- Bank Search Input -->
+      <div class="input-group mb-3">
+        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="bankSearchInput" class="form-control border-start-0" placeholder="Buscar preguntas del banco..." onkeyup="filterBankQuestions()">
+      </div>
+
+      <form method="post" action="{{ url_for('exams.add_bank_questions', exam_id=exam.id) }}">
+        <div class="form-check mb-2">
+          <input type="checkbox" class="form-check-input" id="checkAllBankQuestions" onchange="toggleSelectAllBank(this)">
+          <label class="form-check-label fw-semibold small" for="checkAllBankQuestions">Seleccionar todas las visibles</label>
+        </div>
+        
+        <div class="mb-3 p-2 bg-light rounded-3 border" style="max-height: 280px; overflow-y: auto;" id="bankQuestionsContainer">
+          {% for q in all_questions %}
+            <label class="d-flex align-items-start gap-2 border-bottom py-2 px-1 text-slate-800 bank-q-item">
+              <input type="checkbox" name="question_ids" value="{{ q.id }}" class="form-check-input mt-1 bank-q-chk">
+              <div>
+                <div class="small fw-semibold statement-text">{{ q.statement }}</div>
+                <div class="small text-muted">Tipo: {{ q.question_type }} · Banco: {{ q.bank.name if q.bank else 'Sin banco' }}</div>
+              </div>
+            </label>
+          {% else %}
+            <div class="text-muted small p-3 text-center">No hay preguntas disponibles en tus bancos.</div>
+          {% endfor %}
+        </div>
+        <button class="btn btn-primary w-100 rounded-pill fw-semibold"><i class="bi bi-plus-circle me-1"></i>Agregar seleccionadas</button>
+      </form>
+
+      <hr class="my-4">
+
+      <!-- Random Questions Form -->
+      <form method="post" action="{{ url_for('exams.add_bank_questions', exam_id=exam.id) }}">
+        <label class="form-label fw-semibold small"><i class="bi bi-shuffle me-1"></i>Selección Aleatoria</label>
+        <div class="input-group">
+          <input type="number" name="random_count" min="1" class="form-control" placeholder="Cant. de preguntas">
+          <button class="btn btn-outline-primary fw-semibold"><i class="bi bi-dice-5 me-1"></i>Agregar al azar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create New Question Panel -->
+  <div class="col-lg-6">
+    <div class="socrative-card p-4 h-100">
+      <h3 class="h5 fw-bold mb-3 text-slate-800"><i class="bi bi-patch-plus text-success me-2"></i>Crear Nueva Pregunta</h3>
+      <form method="post" action="{{ url_for('exams.create_question_inside_exam', exam_id=exam.id) }}">
+        {% include '_question_form_fields.html' %}
+        <button class="btn btn-success w-100 rounded-pill mt-4 fw-semibold"><i class="bi bi-check-circle me-1"></i>Guardar y agregar al examen</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endif %}
 {% endblock %}
+
+{% block scripts %}
+<script>
+function calculateTotalScore() {
+  let total = 0;
+  document.querySelectorAll('.eq-point-input').forEach(inp => {
+    const val = parseFloat(inp.value);
+    if (!isNaN(val)) total += val;
+  });
+  const el = document.getElementById('totalScoreCount');
+  if (el) el.textContent = `${total.toFixed(1)} pts`;
+}
+
+function filterBankQuestions() {
+  const query = document.getElementById('bankSearchInput').value.toLowerCase();
+  document.querySelectorAll('.bank-q-item').forEach(item => {
+    const txt = item.querySelector('.statement-text').textContent.toLowerCase();
+    item.style.display = txt.includes(query) ? '' : 'none';
+  });
+}
+
+function toggleSelectAllBank(chk) {
+  document.querySelectorAll('.bank-q-item').forEach(item => {
+    if (item.style.display !== 'none') {
+      const checkbox = item.querySelector('.bank-q-chk');
+      if (checkbox) checkbox.checked = chk.checked;
+    }
+  });
+}
+</script>
+{% endblock %}
+
