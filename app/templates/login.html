@@ -1,28 +1,53 @@
 {% extends 'base.html' %}
-{% block title %}Iniciar Sesión - Profesor{% endblock %}
+{% block title %}Iniciar Sesión | MyTraining{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-5">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white text-center">
-                <h4>Acceso a Profesores</h4>
+<div class="row justify-content-center py-5">
+    <div class="col-lg-5 col-md-7 col-sm-10">
+        <div class="card socrative-card border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-header border-0 bg-primary text-white text-center py-4" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                <div class="mb-2">
+                    <span class="d-inline-flex align-items-center justify-content-center bg-white text-primary rounded-circle shadow-sm" style="width: 50px; height: 50px; font-size: 1.4rem;">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                    </span>
+                </div>
+                <h4 class="fw-bold mb-1">Iniciar Sesión</h4>
+                <p class="mb-0 text-white-50 small">Ingresa con tus credenciales de usuario o docente</p>
             </div>
-            <div class="card-body">
+
+            <div class="card-body p-4 p-md-5">
                 <form action="{{ url_for('auth.login') }}" method="POST">
                     <div class="mb-3">
-                        <label class="form-label">Correo Electrónico</label>
-                        <input type="email" name="email" class="form-control" placeholder="profesor@capacitacion.com" required>
+                        <label class="form-label fw-semibold small text-muted">Correo Electrónico</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope text-muted"></i></span>
+                            <input type="email" name="email" class="form-control border-start-0" placeholder="tu.correo@ejemplo.com" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Contraseña</label>
-                        <input type="password" name="password" class="form-control" required>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold small text-muted">Contraseña</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
+                            <input type="password" name="password" class="form-control border-start-0" placeholder="••••••••" required>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+
+                    <button type="submit" class="btn btn-brand w-100 py-3 fw-bold text-white shadow-sm" style="font-size: 1rem; border-radius: 12px;">
+                        <i class="bi bi-box-arrow-in-right me-2"></i> Iniciar Sesión
+                    </button>
                 </form>
             </div>
-            <div class="card-footer text-center">
-                <p class="mb-0">¿Eres estudiante? <a href="{{ url_for('auth.student_join_exam') }}">Ingresa a un examen aquí</a></p>
+
+            <div class="card-footer bg-light text-center py-3 border-0">
+                <p class="mb-2 text-muted small">
+                    ¿No tienes una cuenta? <a href="{{ url_for('auth.register') }}" class="fw-bold text-primary">Crear una cuenta aquí</a>
+                </p>
+                <div class="pt-2 border-top">
+                    <p class="mb-0 text-muted" style="font-size: 0.85rem;">
+                        ¿Vas a presentar un examen? <a href="{{ url_for('auth.student_join_exam') }}" class="fw-semibold text-decoration-underline">Ingresa con tu código de sala</a>
+                    </p>
+                </div>
             </div>
         </div>
     </div>

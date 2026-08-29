@@ -8,29 +8,35 @@ from app.extensions import db, socketio
 from app.realtime import events
 from app.realtime.manager import session_manager
 from app.modes import registry
-from app.services.exam_content import normalize_room_code
+from app.services.exam_content import normalize_room_code, create_session_question_snapshots
 from app.models import (
     User, Bank, Question, QuestionOption, Exam, ExamQuestion, 
-    ExamSession, ExamAttempt, StudentAnswer
+    ExamSession, ExamAttempt, StudentAnswer, SessionQuestionSnapshot
 )
 from app.blueprints.exams import exams_bp
 
 def build_session_results_rows(session_id):
+    session_obj = ExamSession.query.get(session_id)
+    if session_obj:
+        create_session_question_snapshots(session_obj)
     attempts = ExamAttempt.query.filter_by(session_id=session_id).order_by(ExamAttempt.completed_at.desc()).all()
     rows = []
     for attempt in attempts:
         for answer in attempt.answers:
-            correct_option = QuestionOption.query.filter_by(question_id=answer.question_id, is_correct=True).first()
             rows.append({
-                'Examen': attempt.session.exam.title,
-                'Sala': attempt.session.session_code,
-                'Estudiante': attempt.student.username,
+                'Examen': attempt.session.exam.title if attempt.session and attempt.session.exam else 'Examen',
+                'Sala': attempt.session.session_code if attempt.session else '',
+                'Estudiante': attempt.student.username if attempt.student else 'Estudiante',
+                'Nombre completo': attempt.student.full_name if attempt.student else '',
                 'Nota (%)': attempt.score,
-                'Fecha finalización': attempt.completed_at.strftime('%Y-%m-%d %H:%M'),
-                'Pregunta': answer.question.statement,
-                'Respuesta estudiante': answer.selected_option.option_text if answer.selected_option else 'Respuesta compuesta / sin opción',
-                'Respuesta correcta': correct_option.option_text if correct_option else 'Ver rúbrica',
-                'Resultado': 'Correcta' if answer.is_correct else 'Incorrecta'
+                'Puntos obtenidos': attempt.earned_points,
+                'Puntos totales': attempt.max_points,
+                'Fecha finalización': attempt.completed_at.strftime('%Y-%m-%d %H:%M') if attempt.completed_at else '',
+                'Pregunta (Snapshot)': answer.display_statement,
+                'Respuesta estudiante': answer.display_student_answer,
+                'Respuesta correcta': answer.display_correct_answer,
+                'Resultado': 'Correcta' if answer.is_correct else 'Incorrecta',
+                'Puntos': answer.points_awarded
             })
     return rows
 
@@ -45,22 +51,75 @@ def send_rows_as_excel(rows, filename):
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+def get_instructor_active_sessions_summary(instructor_id):
+    active_sessions = ExamSession.query.join(Exam).filter(
+        Exam.instructor_id == instructor_id,
+        ExamSession.status.notin_(['finished', 'FINISHED', 'closed', 'CLOSED'])
+    ).order_by(ExamSession.created_at.desc()).all()
+
+    summary_list = []
+    total_connected = 0
+
+    for s in active_sessions:
+        room_code = normalize_room_code(s.session_code)
+        rt_session = session_manager.sessions.get(room_code)
+        
+        connected_students = []
+        if rt_session:
+            connected_students = [
+                {'id': st.id, 'username': st.username}
+                for st in rt_session.students.values()
+                if st.connected
+            ]
+        
+        conn_count = len(connected_students)
+        total_connected += conn_count
+
+        summary_list.append({
+            'session_id': s.id,
+            'session_code': s.session_code,
+            'exam_id': s.exam_id,
+            'exam_title': s.exam.title if s.exam else 'Examen',
+            'status': s.status,
+            'connected_count': conn_count,
+            'connected_students': connected_students,
+            'expected_students': s.expected_students or 0,
+            'created_at': s.created_at.strftime('%H:%M') if s.created_at else '',
+            'lobby_url': url_for('exams.instructor_lobby', session_id=s.id)
+        })
+
+    return {
+        'total_active_sessions': len(summary_list),
+        'total_connected_students': total_connected,
+        'sessions': summary_list
+    }
+
+@exams_bp.route('/instructor/active-sessions-summary')
+@login_required
+def active_sessions_summary():
+    if current_user.role not in ['instructor', 'superuser', 'admin']:
+        return {'error': 'Acceso denegado'}, 403
+    return get_instructor_active_sessions_summary(current_user.id)
+
 @exams_bp.route('/instructor/dashboard')
 @login_required
 def instructor_dashboard():
-    if current_user.role != 'instructor':
+    if current_user.role != 'instructor' and current_user.role not in ['superuser', 'admin']:
         return redirect(url_for('auth.home'))
 
     exams = Exam.query.filter_by(instructor_id=current_user.id).all()
     sessions = ExamSession.query.join(Exam).filter(Exam.instructor_id == current_user.id).order_by(ExamSession.created_at.desc()).all()
     attempts = ExamAttempt.query.join(ExamSession).join(Exam).filter(Exam.instructor_id == current_user.id).order_by(ExamAttempt.completed_at.desc()).all()
     banks = Bank.query.filter_by(created_by=current_user.id).all()
+    active_summary = get_instructor_active_sessions_summary(current_user.id)
     
     return render_template('instructor_dashboard.html', 
                          exams=exams, 
+                         user_exams=exams,
                          sessions=sessions, 
                          attempts=attempts,
-                         banks=banks)
+                         banks=banks,
+                         active_summary=active_summary)
 
 @exams_bp.route('/instructor/exam/create', methods=['POST'])
 @login_required
@@ -93,6 +152,7 @@ def create_session(exam_id):
     new_session = ExamSession(exam_id=exam_id, session_code=code, status='waiting', expected_students=max(expected_students or 0, 0))
     db.session.add(new_session)
     db.session.commit()
+    create_session_question_snapshots(new_session)
     return redirect(url_for('exams.instructor_lobby', session_id=new_session.id))
 
 @exams_bp.route('/instructor/lobby/<int:session_id>')
@@ -220,6 +280,7 @@ def submit_exam(session_id):
         flash('Alcanzaste el máximo de intentos permitidos.', 'warning')
         return redirect(url_for('auth.student_join_exam'))
 
+    snapshots = create_session_question_snapshots(session_obj)
     exam = session_obj.exam
     total_possible = 0.0
     earned = 0.0
@@ -227,35 +288,56 @@ def submit_exam(session_id):
     
     for eq in exam.questions:
         q = eq.question
-        total_possible += eq.points
+        if not q:
+            continue
+        eq_points = float(eq.points if eq.points is not None else 1.0)
+        total_possible += eq_points
+        
+        snap = next((s for s in snapshots if s.original_question_id == q.id or s.order_index == eq.order_index), None)
+        selected_option_text = None
+        correct_ans_text = snap.correct_answer_display if snap else None
         
         if q.question_type in ['multiple_choice', 'true_false', 'video']:
             selected_id = request.form.get(f'question_{q.id}', type=int)
             is_correct = False
             if selected_id:
                 opt = QuestionOption.query.get(selected_id)
-                if opt and opt.is_correct and opt.question_id == q.id:
-                    is_correct = True
-                    earned += eq.points
+                if opt:
+                    selected_option_text = opt.option_text
+                    if opt.is_correct and opt.question_id == q.id:
+                        is_correct = True
+                        earned += eq_points
             
             student_answers.append({
                 'question_id': q.id,
+                'question_snapshot_id': snap.id if snap else None,
+                'question_statement': snap.statement if snap else q.statement,
                 'selected_option_id': selected_id,
-                'is_correct': is_correct
+                'selected_option_text': selected_option_text,
+                'correct_answer_text': correct_ans_text,
+                'is_correct': is_correct,
+                'points_awarded': eq_points if is_correct else 0.0
             })
         
         elif q.question_type == 'matching':
             all_correct = True
+            ans_pairs = []
             for pair in q.matching_pairs:
                 selected_right = request.form.get(f'question_{q.id}_pair_{pair.id}')
+                ans_pairs.append(f"{pair.left_text} ➔ {selected_right or 'Sin emparejar'}")
                 if selected_right != pair.right_text:
                     all_correct = False
             if all_correct:
-                earned += eq.points
+                earned += eq_points
             student_answers.append({
                 'question_id': q.id,
+                'question_snapshot_id': snap.id if snap else None,
+                'question_statement': snap.statement if snap else q.statement,
                 'selected_option_id': None,
-                'is_correct': all_correct
+                'selected_option_text': "; ".join(ans_pairs),
+                'correct_answer_text': correct_ans_text or "; ".join([f"{p.left_text} ➔ {p.right_text}" for p in q.matching_pairs]),
+                'is_correct': all_correct,
+                'points_awarded': eq_points if all_correct else 0.0
             })
         
         elif q.question_type == 'ordering':
@@ -266,16 +348,25 @@ def submit_exam(session_id):
                     order_map[item.id] = pos
             
             all_correct = True
+            student_order_items = []
             for item in q.order_items:
+                st_pos = order_map.get(item.id, '-')
+                student_order_items.append((st_pos, item.item_text))
                 if order_map.get(item.id) != item.correct_position:
                     all_correct = False
-                    break
+            
+            ordered_txt = " ➔ ".join([f"{p}. {t}" for p, t in sorted(student_order_items, key=lambda x: (str(x[0]).isdigit(), int(x[0]) if str(x[0]).isdigit() else 999))])
             if all_correct:
-                earned += eq.points
+                earned += eq_points
             student_answers.append({
                 'question_id': q.id,
+                'question_snapshot_id': snap.id if snap else None,
+                'question_statement': snap.statement if snap else q.statement,
                 'selected_option_id': None,
-                'is_correct': all_correct
+                'selected_option_text': ordered_txt,
+                'correct_answer_text': correct_ans_text,
+                'is_correct': all_correct,
+                'points_awarded': eq_points if all_correct else 0.0
             })
     
     final_score = (earned / total_possible * 100.0) if total_possible > 0 else 0.0
@@ -296,9 +387,14 @@ def submit_exam(session_id):
         sa = StudentAnswer(
             attempt_id=attempt.id,
             question_id=ans_data['question_id'],
+            question_snapshot_id=ans_data['question_snapshot_id'],
+            question_statement=ans_data['question_statement'],
             selected_option_id=ans_data.get('selected_option_id'),
+            selected_option_text=ans_data.get('selected_option_text'),
+            correct_answer_text=ans_data.get('correct_answer_text'),
+            answer_text=ans_data.get('selected_option_text'),
             is_correct=ans_data['is_correct'],
-            points_awarded=0.0
+            points_awarded=ans_data.get('points_awarded', 0.0)
         )
         db.session.add(sa)
     
@@ -358,13 +454,185 @@ def exam_reports():
 @exams_bp.route('/instructor/session/<int:session_id>/report')
 @login_required
 def session_report(session_id):
-    if current_user.role != 'instructor':
+    if current_user.role != 'instructor' and current_user.role not in ['superuser', 'admin']:
         return redirect(url_for('auth.home'))
     session_obj = ExamSession.query.get_or_404(session_id)
-    if session_obj.exam.instructor_id != current_user.id:
+    if session_obj.exam.instructor_id != current_user.id and current_user.role not in ['superuser', 'admin']:
         return 'Acceso denegado', 403
+
+    # 1. Asegurar snapshots congelados de las preguntas para esta sesión
+    snapshots = create_session_question_snapshots(session_obj)
+    if not snapshots and session_obj.question_snapshots:
+        snapshots = list(session_obj.question_snapshots)
+
     attempts = ExamAttempt.query.filter_by(session_id=session_id).order_by(ExamAttempt.completed_at.desc()).all()
-    return render_template('session_report.html', session=session_obj, attempts=attempts)
+
+    # 2. Resumen y KPIs generales
+    total_attempts = len(attempts)
+    scores = [a.score for a in attempts if a.score is not None]
+    avg_score = round(sum(scores) / total_attempts, 1) if total_attempts > 0 else 0.0
+    min_score = min(scores) if scores else 0.0
+    max_score = max(scores) if scores else 0.0
+
+    passing_grade = float(session_obj.exam.passing_score if session_obj.exam.passing_score is not None else 60.0)
+    passed_attempts = [a for a in attempts if (a.score or 0.0) >= passing_grade]
+    passed_count = len(passed_attempts)
+    failed_count = total_attempts - passed_count
+    passing_rate = round((passed_count / total_attempts * 100), 1) if total_attempts > 0 else 0.0
+    total_points = sum((s.points or 0.0) for s in snapshots)
+
+    # 3. Matriz Estudiante x Pregunta
+    matrix_rows = []
+    for att in attempts:
+        answers_map = {}
+        for ans in att.answers:
+            if ans.question_snapshot_id:
+                answers_map[ans.question_snapshot_id] = ans
+            elif ans.question_id:
+                matching_snap = next((s for s in snapshots if s.original_question_id == ans.question_id), None)
+                if matching_snap:
+                    answers_map[matching_snap.id] = ans
+                else:
+                    answers_map[f"orig_{ans.question_id}"] = ans
+
+        student_row_answers = []
+        for snap in snapshots:
+            ans = answers_map.get(snap.id)
+            if ans:
+                student_row_answers.append({
+                    'snapshot_id': snap.id,
+                    'has_answer': True,
+                    'is_correct': ans.is_correct,
+                    'points_awarded': ans.points_awarded,
+                    'student_answer': ans.display_student_answer,
+                    'correct_answer': ans.display_correct_answer,
+                    'feedback': ans.display_feedback
+                })
+            else:
+                student_row_answers.append({
+                    'snapshot_id': snap.id,
+                    'has_answer': False,
+                    'is_correct': False,
+                    'points_awarded': 0.0,
+                    'student_answer': 'No respondida',
+                    'correct_answer': snap.correct_answer_display,
+                    'feedback': ''
+                })
+
+        matrix_rows.append({
+            'attempt': att,
+            'student': att.student,
+            'student_name': att.student.full_name if att.student else f"Usuario #{att.student_id}",
+            'username': att.student.username if att.student else 'Estudiante',
+            'email': att.student.email if att.student else '',
+            'score': att.score,
+            'earned_points': att.earned_points,
+            'max_points': att.max_points or total_points,
+            'is_passed': (att.score or 0) >= passing_grade,
+            'completed_at': att.completed_at,
+            'question_answers': student_row_answers
+        })
+
+    # 4. Desglose analítico por Pregunta (Snapshot congelado)
+    question_analytics = []
+    for snap in snapshots:
+        snap_answers = []
+        correct_count = 0
+        options_counts = {}
+        if snap.options_data:
+            for opt in snap.options_data:
+                txt = opt.get('option_text') or opt.get('text') or ''
+                if txt:
+                    options_counts[txt] = 0
+
+        for att in attempts:
+            matching_ans = next(
+                (a for a in att.answers if a.question_snapshot_id == snap.id or a.question_id == snap.original_question_id),
+                None
+            )
+            if matching_ans:
+                snap_answers.append({
+                    'student_name': att.student.full_name if att.student else att.student.username,
+                    'username': att.student.username if att.student else '',
+                    'answer_text': matching_ans.display_student_answer,
+                    'is_correct': matching_ans.is_correct,
+                    'points_awarded': matching_ans.points_awarded
+                })
+                if matching_ans.is_correct:
+                    correct_count += 1
+
+                st_ans_txt = matching_ans.display_student_answer
+                if st_ans_txt in options_counts:
+                    options_counts[st_ans_txt] += 1
+                elif st_ans_txt and st_ans_txt != 'Sin respuesta':
+                    options_counts[st_ans_txt] = options_counts.get(st_ans_txt, 0) + 1
+            else:
+                snap_answers.append({
+                    'student_name': att.student.full_name if att.student else att.student.username,
+                    'username': att.student.username if att.student else '',
+                    'answer_text': 'Sin respuesta',
+                    'is_correct': False,
+                    'points_awarded': 0.0
+                })
+
+        accuracy = round((correct_count / total_attempts * 100), 1) if total_attempts > 0 else 0.0
+        if accuracy >= 70:
+            diff_label = 'Alta precisión'
+            diff_badge = 'bg-success'
+        elif accuracy >= 40:
+            diff_label = 'Precisión moderada'
+            diff_badge = 'bg-warning text-dark'
+        else:
+            diff_label = 'Baja precisión / Difícil'
+            diff_badge = 'bg-danger'
+
+        question_analytics.append({
+            'snapshot': snap,
+            'order': snap.order_index,
+            'statement': snap.statement,
+            'points': snap.points,
+            'question_type': snap.question_type,
+            'type_label': snap.type_label,
+            'category': snap.category,
+            'feedback_text': snap.feedback_text,
+            'image_url': snap.image_url,
+            'video_url': snap.video_url,
+            'video_timestamp': snap.video_timestamp,
+            'options_data': snap.options_data,
+            'matching_data': snap.matching_data,
+            'ordering_data': snap.ordering_data,
+            'correct_answer_display': snap.correct_answer_display,
+            'correct_count': correct_count,
+            'incorrect_count': total_attempts - correct_count,
+            'accuracy': accuracy,
+            'diff_label': diff_label,
+            'diff_badge': diff_badge,
+            'options_counts': options_counts,
+            'answers_list': snap_answers
+        })
+
+    summary = {
+        'total_attempts': total_attempts,
+        'avg_score': avg_score,
+        'min_score': min_score,
+        'max_score': max_score,
+        'passing_grade': passing_grade,
+        'passed_count': passed_count,
+        'failed_count': failed_count,
+        'passing_rate': passing_rate,
+        'total_questions': len(snapshots),
+        'total_points': total_points
+    }
+
+    return render_template(
+        'session_report.html',
+        session=session_obj,
+        snapshots=snapshots,
+        attempts=attempts,
+        summary=summary,
+        matrix_rows=matrix_rows,
+        question_analytics=question_analytics
+    )
 
 @exams_bp.route('/instructor/session/<int:session_id>/results.xlsx')
 @login_required
@@ -429,9 +697,17 @@ def library():
         return redirect(url_for('auth.home'))
     from app.models import ExamClass, ExamGroup
     exams = Exam.query.filter_by(instructor_id=current_user.id).order_by(Exam.updated_at.desc().nullslast(), Exam.id.desc()).all()
+    active_exams = [e for e in exams if e.active is not False]
+    deleted_exams = [e for e in exams if e.active is False]
     classes = ExamClass.query.filter_by(instructor_id=current_user.id).order_by(ExamClass.name).all()
     groups = ExamGroup.query.filter_by(instructor_id=current_user.id).order_by(ExamGroup.name).all()
-    return render_template('exam_library.html', exams=exams, classes=classes, groups=groups)
+    return render_template(
+        'exam_library.html',
+        exams=active_exams,
+        deleted_exams=deleted_exams,
+        classes=classes,
+        groups=groups
+    )
 
 @exams_bp.route('/instructor/exam/new', methods=['GET', 'POST'])
 @login_required
@@ -571,8 +847,33 @@ def delete_exam(exam_id):
     exam = Exam.query.get_or_404(exam_id)
     if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
         return 'Acceso denegado', 403
-    db.session.delete(exam); db.session.commit(); flash('Examen eliminado.', 'info')
+    exam.active = False
+    db.session.commit()
+    flash(f'Examen "{exam.title}" desactivado y movido a Eliminados.', 'info')
     return redirect(url_for('exams.library'))
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/restore', methods=['POST'])
+@login_required
+def restore_exam(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    exam.active = True
+    db.session.commit()
+    flash(f'Examen "{exam.title}" restaurado y activado correctamente.', 'success')
+    return redirect(url_for('exams.library', tab='deleted'))
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/permanent-delete', methods=['POST'])
+@login_required
+def delete_exam_permanent(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
+        return 'Acceso denegado', 403
+    title = exam.title
+    db.session.delete(exam)
+    db.session.commit()
+    flash(f'Examen "{title}" eliminado definitivamente.', 'warning')
+    return redirect(url_for('exams.library', tab='deleted'))
 
 @exams_bp.route('/instructor/session/configure/<int:exam_id>', methods=['GET', 'POST'])
 @login_required
@@ -584,6 +885,7 @@ def configure_session(exam_id):
         code = normalize_room_code(''.join(random.choices(string.ascii_uppercase + string.digits, k=6)))
         session = ExamSession(exam_id=exam.id, session_code=code, status='READY', expected_students=request.form.get('expected_students', type=int, default=0), question_order=request.form.get('question_order', 'original'))
         db.session.add(session); db.session.commit()
+        create_session_question_snapshots(session)
         return redirect(url_for('exams.instructor_lobby', session_id=session.id))
     return render_template('session_config.html', exam=exam)
 

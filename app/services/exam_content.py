@@ -69,3 +69,78 @@ def grade_answer(question, answer):
         'selected_option_text': selected_option_text,
         'feedback': question.get('feedback_text') or ('Correcta' if correct else 'Incorrecta')
     }
+
+
+def create_session_question_snapshots(session_obj):
+    """
+    Crea copias congeladas (snapshots) de las preguntas del examen para la sesión dada.
+    Preserva enunciados, opciones, pares, ordenamientos, retroalimentación y puntajes originales.
+    """
+    from app.extensions import db
+    from app.models import SessionQuestionSnapshot
+
+    if not session_obj:
+        return []
+
+    existing = SessionQuestionSnapshot.query.filter_by(session_id=session_obj.id).order_by(SessionQuestionSnapshot.order_index).all()
+    if existing:
+        return existing
+
+    if not session_obj.exam:
+        return []
+
+    snapshots = []
+    for eq in session_obj.exam.questions:
+        q = eq.question
+        if not q:
+            continue
+
+        opts_data = []
+        if q.options:
+            for opt in q.options:
+                opts_data.append({
+                    'id': opt.id,
+                    'text': opt.option_text,
+                    'option_text': opt.option_text,
+                    'is_correct': bool(opt.is_correct)
+                })
+
+        match_data = []
+        if q.matching_pairs:
+            for pair in q.matching_pairs:
+                match_data.append({
+                    'id': pair.id,
+                    'left_text': pair.left_text,
+                    'right_text': pair.right_text
+                })
+
+        order_data = []
+        if q.order_items:
+            for item in q.order_items:
+                order_data.append({
+                    'id': item.id,
+                    'item_text': item.item_text,
+                    'correct_position': item.correct_position
+                })
+
+        snapshot = SessionQuestionSnapshot(
+            session_id=session_obj.id,
+            original_question_id=q.id,
+            order_index=eq.order_index or (len(snapshots) + 1),
+            question_type=q.question_type or 'multiple_choice',
+            statement=q.statement,
+            category=q.category or 'General',
+            feedback_text=q.feedback_text,
+            points=float(eq.points if eq.points is not None else (q.default_points or 1.0)),
+            image_url=q.image_url,
+            video_url=q.video_url,
+            video_timestamp=q.video_timestamp,
+            options_data=opts_data,
+            matching_data=match_data,
+            ordering_data=order_data
+        )
+        db.session.add(snapshot)
+        snapshots.append(snapshot)
+
+    db.session.commit()
+    return snapshots

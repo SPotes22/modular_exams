@@ -14,10 +14,21 @@ class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), nullable=False)
+    first_name = db.Column(db.String(80), nullable=True)
+    last_name = db.Column(db.String(80), nullable=True)
     email = db.Column(db.String(120), unique=True, nullable=True)
+    phone = db.Column(db.String(30), nullable=True)
+    institution = db.Column(db.String(150), nullable=True)
     password_hash = db.Column(db.String(255), nullable=True)
     role = db.Column(db.String(20), default='student')
     default_exam_view = db.Column(db.String(40), default='questions')
+
+    @property
+    def full_name(self):
+        parts = [p for p in [self.first_name, self.last_name] if p]
+        if parts:
+            return " ".join(parts)
+        return self.username or "Usuario"
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -94,6 +105,7 @@ class Exam(db.Model):
     instructor_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     group_id = db.Column(db.Integer, db.ForeignKey('exam_groups.id'), nullable=True)
     status = db.Column(db.String(20), default='DRAFT')
+    active = db.Column(db.Boolean, default=True)
     allow_multiple_attempts = db.Column(db.Boolean, default=False)
     max_attempts = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -132,6 +144,56 @@ class ExamSession(db.Model):
     exam = db.relationship('Exam')
     attempts = db.relationship('ExamAttempt', back_populates='session', lazy=True)
 
+class SessionQuestionSnapshot(db.Model):
+    __tablename__ = 'session_question_snapshots'
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('exam_sessions.id'), nullable=False)
+    original_question_id = db.Column(db.Integer, db.ForeignKey('questions.id'), nullable=True)
+    order_index = db.Column(db.Integer, default=1)
+    question_type = db.Column(db.String(30), default='multiple_choice')
+    statement = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(50), default='General')
+    feedback_text = db.Column(db.Text, nullable=True)
+    points = db.Column(db.Float, default=1.0)
+    image_url = db.Column(db.String(255), nullable=True)
+    video_url = db.Column(db.String(255), nullable=True)
+    video_timestamp = db.Column(db.Integer, nullable=True)
+    options_data = db.Column(db.JSON, nullable=True)
+    matching_data = db.Column(db.JSON, nullable=True)
+    ordering_data = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    session = db.relationship('ExamSession', backref=db.backref('question_snapshots', cascade="all, delete-orphan", order_by="SessionQuestionSnapshot.order_index"))
+    original_question = db.relationship('Question')
+
+    @property
+    def type_label(self):
+        mapping = {
+            'multiple_choice': 'Opción Múltiple',
+            'single_choice': 'Opción Única',
+            'multiple_select': 'Selección Múltiple',
+            'true_false': 'Verdadero / Falso',
+            'matching': 'Emparejamiento',
+            'ordering': 'Ordenar',
+            'video': 'Video',
+            'short_answer': 'Respuesta Corta',
+            'open_answer': 'Respuesta Abierta'
+        }
+        return mapping.get(self.question_type, self.question_type or 'Pregunta')
+
+    @property
+    def correct_answer_display(self):
+        if self.options_data:
+            corrects = [opt.get('option_text') or opt.get('text') for opt in self.options_data if opt.get('is_correct')]
+            if corrects:
+                return ", ".join(corrects)
+        if self.matching_data:
+            return "; ".join([f"{p.get('left_text')} ➔ {p.get('right_text')}" for p in self.matching_data])
+        if self.ordering_data:
+            sorted_items = sorted(self.ordering_data, key=lambda x: x.get('correct_position', 0))
+            return " ➔ ".join([i.get('item_text') for i in sorted_items])
+        return "Ver rúbrica"
+
 class ExamAttempt(db.Model):
     __tablename__ = 'exam_attempts'
     id = db.Column(db.Integer, primary_key=True)
@@ -152,17 +214,63 @@ class StudentAnswer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     attempt_id = db.Column(db.Integer, db.ForeignKey('exam_attempts.id'), nullable=False)
     question_id = db.Column(db.Integer, db.ForeignKey('questions.id'), nullable=False)
+    question_snapshot_id = db.Column(db.Integer, db.ForeignKey('session_question_snapshots.id'), nullable=True)
     selected_option_id = db.Column(db.Integer, db.ForeignKey('question_options.id'), nullable=True)
+    question_statement = db.Column(db.Text, nullable=True)
+    selected_option_text = db.Column(db.Text, nullable=True)
+    correct_answer_text = db.Column(db.Text, nullable=True)
     answer_text = db.Column(db.Text, nullable=True)
     is_correct = db.Column(db.Boolean, default=False)
     points_awarded = db.Column(db.Float, default=0.0)
     question = db.relationship('Question')
     selected_option = db.relationship('QuestionOption')
+    snapshot = db.relationship('SessionQuestionSnapshot', backref='student_answers')
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+    @property
+    def display_statement(self):
+        if self.question_statement:
+            return self.question_statement
+        if self.snapshot and self.snapshot.statement:
+            return self.snapshot.statement
+        if self.question and self.question.statement:
+            return self.question.statement
+        return "Pregunta no disponible"
 
+    @property
+    def display_student_answer(self):
+        if self.selected_option_text:
+            return self.selected_option_text
+        if self.answer_text:
+            return self.answer_text
+        if self.selected_option and self.selected_option.option_text:
+            return self.selected_option.option_text
+        return "Sin respuesta"
+
+    @property
+    def display_correct_answer(self):
+        if self.correct_answer_text:
+            return self.correct_answer_text
+        if self.snapshot and self.snapshot.correct_answer_display:
+            return self.snapshot.correct_answer_display
+        if self.question:
+            if self.question.options:
+                correct_opts = [opt.option_text for opt in self.question.options if opt.is_correct]
+                if correct_opts:
+                    return ", ".join(correct_opts)
+            elif self.question.matching_pairs:
+                return "; ".join([f"{p.left_text} ➔ {p.right_text}" for p in self.question.matching_pairs])
+            elif self.question.order_items:
+                sorted_items = sorted(self.question.order_items, key=lambda x: x.correct_position)
+                return " ➔ ".join([i.item_text for i in sorted_items])
+        return "Ver rúbrica"
+
+    @property
+    def display_feedback(self):
+        if self.snapshot and self.snapshot.feedback_text:
+            return self.snapshot.feedback_text
+        if self.question and self.question.feedback_text:
+            return self.question.feedback_text
+        return ""
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -253,4 +361,54 @@ class BlockAnswer(db.Model):
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User')
+# ==========================================
+# POLL / ENCUESTA EN VIVO
+# ==========================================
 
+class Poll(db.Model):
+    __tablename__ = 'polls'
+    id = db.Column(db.Integer, primary_key=True)
+    instructor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    room_code = db.Column(db.String(20), nullable=False)
+    # 'poll' = encuesta libre | 'true_false' | 'multiple_choice' | 'open_answer'
+    poll_type = db.Column(db.String(30), default='poll')
+    question_text = db.Column(db.Text, nullable=False)
+    # JSON list of option strings, null for open_answer/poll
+    options_json = db.Column(db.JSON, nullable=True)
+    status = db.Column(db.String(20), default='open')   # open | closed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    instructor = db.relationship('User')
+    votes = db.relationship('PollVote', backref='poll', cascade='all, delete-orphan')
+
+    @property
+    def vote_count(self):
+        return len(self.votes)
+
+    def results(self):
+        """Devuelve {opcion: conteo} para opciones fijas, o lista de textos para abiertas."""
+        if self.poll_type in ('open_answer', 'poll'):
+            return [v.answer_text for v in self.votes if v.answer_text]
+        counts = {}
+        for opt in (self.options_json or []):
+            counts[opt] = 0
+        for v in self.votes:
+            key = v.answer_text
+            if key in counts:
+                counts[key] += 1
+        return counts
+
+
+class PollVote(db.Model):
+    __tablename__ = 'poll_votes'
+    id = db.Column(db.Integer, primary_key=True)
+    poll_id = db.Column(db.Integer, db.ForeignKey('polls.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    answer_text = db.Column(db.Text, nullable=True)
+    voted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    student = db.relationship('User')
+
+    __table_args__ = (
+        db.UniqueConstraint('poll_id', 'student_id', name='uq_poll_student'),
+    )

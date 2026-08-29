@@ -13,11 +13,14 @@ def home():
             view = getattr(current_user, 'default_exam_view', 'questions')
             endpoint = {'questions': 'questions.mis_preguntas', 'exams': 'exams.library', 'classes': 'exams.classes', 'learning': 'learning.instructor_dashboard'}.get(view, 'exams.instructor_dashboard')
             return redirect(url_for(endpoint))
-        return redirect(url_for('auth.student_join_exam'))
+        return redirect(url_for('learning.student_catalog'))
     return render_template('login.html')
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated and request.method == 'GET':
+        return redirect(url_for('auth.home'))
+
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '').strip()
@@ -25,20 +28,89 @@ def login():
         
         if user and user.check_password(password):
             login_user(user)
+            display_name = user.first_name or user.username
             if user.role in ['superuser', 'admin']:
-                flash(f'Bienvenido Superusuario {user.username}', 'success')
+                flash(f'Bienvenido Superusuario {display_name}', 'success')
                 return redirect(url_for('admin.dashboard'))
             elif user.role == 'instructor':
-                flash(f'Bienvenido Profesor {user.username}', 'success')
+                flash(f'Bienvenido Profesor {display_name}', 'success')
                 view = getattr(user, 'default_exam_view', 'questions')
                 endpoint = {'questions': 'questions.mis_preguntas', 'exams': 'exams.library', 'classes': 'exams.classes', 'learning': 'learning.instructor_dashboard'}.get(view, 'exams.instructor_dashboard')
                 return redirect(url_for(endpoint))
             else:
-                flash('Los estudiantes deben ingresar con su código de sala.', 'info')
-                return redirect(url_for('auth.student_join_exam'))
+                flash(f'Bienvenido(a) {display_name}', 'success')
+                return redirect(url_for('learning.student_catalog'))
         
         flash('Credenciales de acceso inválidas', 'danger')
     return render_template('login.html')
+
+@auth_bp.route('/register', methods=['GET', 'POST'])
+@auth_bp.route('/registro', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated and request.method == 'GET':
+        return redirect(url_for('auth.home'))
+
+    if request.method == 'POST':
+        first_name = request.form.get('first_name', '').strip()
+        last_name = request.form.get('last_name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '').strip()
+        password_confirm = request.form.get('password_confirm', '').strip()
+        phone = request.form.get('phone', '').strip()
+        role_raw = request.form.get('role', 'student').strip().lower()
+        institution = request.form.get('institution', '').strip()
+
+        # Validaciones de campos obligatorios
+        if not first_name or not last_name or not email or not password:
+            flash('Por favor completa todos los campos requeridos: Nombre, Apellido, Correo y Contraseña.', 'warning')
+            return render_template('register.html', form_data=request.form)
+
+        if '@' not in email or '.' not in email:
+            flash('Por favor ingresa un correo electrónico válido.', 'warning')
+            return render_template('register.html', form_data=request.form)
+
+        if len(password) < 4:
+            flash('La contraseña debe tener al menos 4 caracteres.', 'warning')
+            return render_template('register.html', form_data=request.form)
+
+        if password_confirm and password != password_confirm:
+            flash('Las contraseñas no coinciden.', 'warning')
+            return render_template('register.html', form_data=request.form)
+
+        # Determinar rol (estudiante o profesor/instructor)
+        role = 'instructor' if role_raw in ['instructor', 'profesor', 'teacher', 'docente'] else 'student'
+
+        # Verificar unicidad de correo
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            flash(f'Ya existe una cuenta registrada con el correo "{email}".', 'danger')
+            return render_template('register.html', form_data=request.form)
+
+        full_name = f"{first_name} {last_name}".strip()
+        new_user = User(
+            username=full_name,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone=phone,
+            institution=institution,
+            role=role,
+            default_exam_view='questions' if role == 'instructor' else 'catalog'
+        )
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+
+        login_user(new_user)
+        display_name = new_user.first_name or new_user.username
+        role_label = 'Profesor' if new_user.role == 'instructor' else 'Estudiante'
+        flash(f'¡Cuenta creada exitosamente! Bienvenido(a) {role_label} {display_name}.', 'success')
+
+        if new_user.role == 'instructor':
+            return redirect(url_for('exams.instructor_dashboard'))
+        return redirect(url_for('learning.student_catalog'))
+
+    return render_template('register.html', form_data={})
 
 @auth_bp.route('/logout')
 @login_required

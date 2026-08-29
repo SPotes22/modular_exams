@@ -17,6 +17,36 @@ def _emit_students(session):
     payload = {'students': session_manager.students_payload(session), 'room_code': session.room_code}
     socketio.emit(events.STUDENTS_UPDATED, payload, to=session.teacher_sid or socket_room(session.room_code))
     print(f"[ROOM] Estudiantes conectados: {len([s for s in session.students.values() if s.connected])}")
+    _emit_teacher_stats_update(session)
+
+
+def _emit_teacher_stats_update(session=None, instructor_id=None):
+    try:
+        if not instructor_id and session:
+            db_session = DbExamSession.query.filter_by(session_code=session.room_code).first()
+            if db_session and db_session.exam:
+                instructor_id = db_session.exam.instructor_id
+        if instructor_id:
+            from app.blueprints.exams.routes import get_instructor_active_sessions_summary
+            summary = get_instructor_active_sessions_summary(instructor_id)
+            socketio.emit('teacher_live_stats_updated', summary, to=f"teacher_{instructor_id}")
+    except Exception as e:
+        print(f"[ERROR] Error al emitir stats del profesor: {e}")
+
+
+@socketio.on('subscribe_teacher_stats')
+def handle_subscribe_teacher_stats(data=None):
+    instructor_id = None
+    if current_user.is_authenticated:
+        instructor_id = current_user.id
+    elif data and isinstance(data, dict):
+        instructor_id = data.get('instructor_id')
+        
+    if instructor_id:
+        join_room(f"teacher_{instructor_id}")
+        from app.blueprints.exams.routes import get_instructor_active_sessions_summary
+        summary = get_instructor_active_sessions_summary(instructor_id)
+        emit('teacher_live_stats_updated', summary)
 
 
 @socketio.on(events.TEACHER_JOIN)
@@ -27,6 +57,8 @@ def handle_teacher_join(data):
         emit(events.ERROR, {'message': 'Sesión no encontrada'})
         return
     join_room(socket_room(room_code))
+    if current_user.is_authenticated and current_user.role in ['instructor', 'superuser', 'admin']:
+        join_room(f"teacher_{current_user.id}")
     print(f"[JOIN] Profesor -> {room_code}")
     _emit_students(session)
 
@@ -64,6 +96,7 @@ def handle_start_exam_session(data):
     session.status = 'in_progress'
     print(f"[START] Profesor inició {session.room_code}")
     _mode(session).on_start(session)
+    _emit_teacher_stats_update(session)
 
 
 @socketio.on(events.ANSWER_SUBMITTED)

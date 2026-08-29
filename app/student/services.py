@@ -77,9 +77,11 @@ class StudentService:
     def save_final_attempt(student_id: int, session_id: int, answers_dict: Dict[int, Any]) -> ExamAttempt:
         """
         Persiste en la Base de Datos el intento final del estudiante leyendo el diccionario 
-        de respuestas acumuladas en RAM.
+        de respuestas acumuladas en RAM y vinculándolo con los snapshots históricos.
         """
+        from app.services.exam_content import create_session_question_snapshots
         session_obj = ExamSession.query.get_or_404(session_id)
+        snapshots = create_session_question_snapshots(session_obj)
         
         # Evitar duplicados si el estudiante ya registró un intento persistido
         existing_attempt = ExamAttempt.query.filter_by(student_id=student_id, session_id=session_id).first()
@@ -92,30 +94,51 @@ class StudentService:
 
         for eq in session_obj.exam.questions:
             q = eq.question
-            total_possible += eq.points
+            if not q:
+                continue
+            eq_points = float(eq.points if eq.points is not None else 1.0)
+            total_possible += eq_points
+            
+            snap = next((s for s in snapshots if s.original_question_id == q.id or s.order_index == eq.order_index), None)
             
             # Obtener lo que respondió el estudiante en esta pregunta desde la memoria RAM
             student_ans_data = answers_dict.get(q.id)
             is_correct = False
             selected_option_id = None
+            selected_option_text = None
 
             if student_ans_data and isinstance(student_ans_data, dict):
-                # Extraer según la estructura guardada por la modalidad
                 selected_option_id = student_ans_data.get("answer_data", {}).get("option_id") or student_ans_data.get("option_id")
                 if "is_correct" in student_ans_data:
-                    is_correct = student_ans_data["is_correct"]
+                    is_correct = bool(student_ans_data["is_correct"])
                 elif selected_option_id:
                     opt = QuestionOption.query.get(selected_option_id)
                     if opt and opt.is_correct and opt.question_id == q.id:
                         is_correct = True
+                
+                selected_option_text = student_ans_data.get("selected_option_text") or student_ans_data.get("answer_text")
+                if not selected_option_text and selected_option_id:
+                    opt = QuestionOption.query.get(selected_option_id)
+                    if opt:
+                        selected_option_text = opt.option_text
 
             if is_correct:
-                earned += eq.points
+                earned += eq_points
+
+            correct_ans_txt = snap.correct_answer_display if snap else None
+            if not correct_ans_txt and q.options:
+                corrects = [o.option_text for o in q.options if o.is_correct]
+                correct_ans_txt = ", ".join(corrects) if corrects else None
 
             student_answers_to_db.append({
                 "question_id": q.id,
+                "question_snapshot_id": snap.id if snap else None,
+                "question_statement": snap.statement if snap else q.statement,
                 "selected_option_id": selected_option_id,
-                "is_correct": is_correct
+                "selected_option_text": selected_option_text,
+                "correct_answer_text": correct_ans_txt,
+                "is_correct": is_correct,
+                "points_awarded": eq_points if is_correct else 0.0
             })
 
         final_score = (earned / total_possible * 100.0) if total_possible > 0 else 0.0
@@ -124,6 +147,8 @@ class StudentService:
             student_id=student_id,
             session_id=session_id,
             score=round(final_score, 2),
+            earned_points=round(earned, 2),
+            max_points=round(total_possible, 2),
             status='completed'
         )
         db.session.add(attempt)
@@ -133,8 +158,14 @@ class StudentService:
             sa = StudentAnswer(
                 attempt_id=attempt.id,
                 question_id=ans["question_id"],
+                question_snapshot_id=ans["question_snapshot_id"],
+                question_statement=ans["question_statement"],
                 selected_option_id=ans["selected_option_id"],
-                is_correct=ans["is_correct"]
+                selected_option_text=ans["selected_option_text"],
+                correct_answer_text=ans["correct_answer_text"],
+                answer_text=ans["selected_option_text"],
+                is_correct=ans["is_correct"],
+                points_awarded=ans["points_awarded"]
             )
             db.session.add(sa)
 

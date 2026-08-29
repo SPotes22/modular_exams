@@ -38,7 +38,8 @@ class ExamService:
 
     @staticmethod
     def create_session(exam_id: int, session_code: str) -> ExamSession:
-        """Crea un registro de sesión de examen en base de datos."""
+        """Crea un registro de sesión de examen en base de datos y congela sus preguntas."""
+        from app.services.exam_content import create_session_question_snapshots
         clean_code = session_code.strip().upper()
         session_obj = ExamSession(
             exam_id=exam_id,
@@ -47,6 +48,7 @@ class ExamService:
         )
         db.session.add(session_obj)
         db.session.commit()
+        create_session_question_snapshots(session_obj)
         return session_obj
 
     @staticmethod

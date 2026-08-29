@@ -1,100 +1,545 @@
-{% extends 'base.html' %}
-{% block title %}Panel de Control{% endblock %}
+{% extends "base.html" %}
+{% block title %}Inicio | MyTraining{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Panel del Instructor</h2><div class="mb-4 d-flex gap-2 flex-wrap"><a class="btn btn-primary" href="{{ url_for('questions.mis_preguntas') }}">Mis preguntas</a><a class="btn btn-primary" href="{{ url_for('exams.library') }}">Mis exámenes</a><a class="btn btn-primary" href="{{ url_for('exams.classes') }}">Mis clases</a><a class="btn btn-outline-primary" href="{{ url_for('exams.history') }}">Historial</a></div><form method="post" action="{{ url_for('exams.update_preferences') }}" class="card card-body mb-4"><label class="form-label">Vista inicial</label><select name="default_exam_view" class="form-select" style="max-width:320px"><option value="questions">Mis preguntas</option><option value="exams">Mis exámenes</option><option value="classes">Mis clases</option><option value="learning">Planes de capacitación</option></select><button class="btn btn-sm btn-secondary mt-2" style="max-width:160px">Guardar preferencia</button></form>
+<div class="dashboard">
 
-<div class="row">
-    <!-- Crear Banco -->
-    <div class="col-md-4 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0">1. Crear Banco de Preguntas</h5>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('questions.create_bank') }}" method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre del Banco</label>
-                        <input type="text" name="name" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Descripción</label>
-                        <textarea name="description" class="form-control" rows="2"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-secondary w-100">Crear Banco</button>
-                </form>
-            </div>
-        </div>
+  <!-- HEADER -->
+  <section class="dashboard-header mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <span class="dashboard-eyebrow">AULA EN VIVO</span>
+        <h1>Panel del Profesor</h1>
+        <p class="mb-0">Inicia una actividad, supervisa tus salas en vivo y conecta a tus estudiantes.</p>
+      </div>
     </div>
+  </section>
 
-    <!-- Crear Examen Dinámico -->
-    <div class="col-md-4 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">2. Crear Examen Aleatorio</h5>
+  <!-- MONITOR EN VIVO -->
+  <div id="dashboardActiveSessionsSection" class="mb-4">
+    <div class="card socrative-card border-0 shadow-sm p-4" style="border-radius:18px;background:linear-gradient(to right,#fff,#f8fafc);border-left:5px solid #22c55e!important;">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;background:#dcfce7;color:#16a34a;font-size:1.4rem;">
+            <i class="bi bi-broadcast"></i>
+          </div>
+          <div>
+            <div class="d-flex align-items-center gap-2">
+              <h5 class="fw-bold mb-0 text-dark">Monitor de Salas en Vivo</h5>
+              <span class="badge bg-success rounded-pill px-2 py-1" style="font-size:.75rem;">
+                <span class="spinner-grow spinner-grow-sm me-1" style="width:6px;height:6px;" role="status"></span> TIEMPO REAL
+              </span>
             </div>
-            <div class="card-body">
-                <form action="{{ url_for('exams.create_advanced_exam') }}" method="POST">
-                    <div class="mb-2">
-                        <label class="form-label">Título del Examen</label>
-                        <input type="text" name="title" class="form-control" required>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label">Banco de Origen</label>
-                        <select name="bank_id" class="form-select" required>
-                            {% for bank in banks %}
-                                <option value="{{ bank.id }}">{{ bank.name }} ({{ bank.questions|length }} preg.)</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label">Modalidad</label>
-                        <select name="exam_mode" class="form-select">
-                            <option value="open_navigation">Open Navigation</option>
-                            <option value="instant_feedback" selected>Instant Feedback</option>
-                            <option value="teacher_paced">Teacher Paced</option>
-                        </select>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col">
-                            <label class="form-label">Preguntas</label>
-                            <input type="number" name="num_questions" class="form-control" value="5" min="1">
-                        </div>
-                        <div class="col">
-                            <label class="form-label">Minutos</label>
-                            <input type="number" name="duration" class="form-control" value="30" min="1">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-info text-white w-100">Generar Examen</button>
-                </form>
-            </div>
+            <p class="text-muted small mb-0">Supervisa las salas simultáneas y el total de estudiantes conectados</p>
+          </div>
         </div>
+        <div class="d-flex align-items-center gap-3">
+          <div class="text-center px-3 py-2 bg-white rounded-3 border shadow-sm">
+            <div class="fs-4 fw-bold text-primary lh-1" id="dashTotalStudentsCount">{{ active_summary.total_connected_students if active_summary else 0 }}</div>
+            <small class="text-muted fw-semibold" style="font-size:.72rem;text-transform:uppercase;">Alumnos Conectados</small>
+          </div>
+          <div class="text-center px-3 py-2 bg-white rounded-3 border shadow-sm">
+            <div class="fs-4 fw-bold text-success lh-1" id="dashActiveRoomsCount">{{ active_summary.total_active_sessions if active_summary else 0 }}</div>
+            <small class="text-muted fw-semibold" style="font-size:.72rem;text-transform:uppercase;">Salas Activas</small>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 pt-3 border-top" id="dashboardRoomsList">
+        {% if active_summary and active_summary.sessions %}
+          <div class="row g-3">
+            {% for s in active_summary.sessions %}
+            <div class="col-md-6 col-lg-4">
+              <div class="card h-100 border shadow-none p-3" style="border-radius:14px;">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <span class="badge bg-primary-subtle text-primary fw-bold px-2 py-1 font-monospace" style="font-size:.9rem;letter-spacing:1px;"><i class="bi bi-hash"></i>{{ s.session_code }}</span>
+                  <span class="badge {% if s.status in ['in_progress','RUNNING'] %}bg-success-subtle text-success{% elif s.status in ['PAUSED','paused'] %}bg-warning-subtle text-warning{% else %}bg-info-subtle text-info{% endif %} rounded-pill">{{ s.status }}</span>
+                </div>
+                <h6 class="fw-bold text-dark text-truncate mb-2">{{ s.exam_title }}</h6>
+                <div class="d-flex justify-content-between align-items-center mt-auto pt-2">
+                  <span class="small fw-semibold text-muted"><i class="bi bi-people-fill text-primary me-1"></i><strong class="text-dark">{{ s.connected_count }}</strong> conectados</span>
+                  <a href="{{ s.lobby_url }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" style="font-size:.78rem;">Lobby <i class="bi bi-arrow-right ms-1"></i></a>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-3 text-muted small" id="dashNoRoomsMsg">
+            <i class="bi bi-info-circle me-1"></i> No tienes salas activas. Selecciona "Iniciar un examen" para abrir una.
+          </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
 
-    <!-- Lanzar Sala -->
-    <div class="col-md-4 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">3. Iniciar Nueva Sala</h5>
-            </div>
-            <div class="card-body">
-                {% if exams %}
-                    {% for exam in exams %}
-                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                            <div>
-                                <strong>{{ exam.title }}</strong><br>
-                                <small class="text-muted">{{ exam.duration_minutes }} min | {{ exam.exam_mode }}</small>
-                            </div>
-                            <form action="{{ url_for('exams.create_session', exam_id=exam.id) }}" method="POST">
-                                <button type="submit" class="btn btn-sm btn-success">Abrir Sala</button>
-                            </form>
-                        </div>
-                    {% endfor %}
-                {% else %}
-                    <p class="text-muted mb-0">Primero crea un examen para poder iniciar salas.</p>
-                {% endif %}
-            </div>
-        </div>
+  <!-- GRID DE ACTIVIDADES -->
+  <section class="activity-grid mb-5">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+
+      <!-- 1. EXAMEN -->
+      <div class="col">
+        <a href="#" class="activity-card activity-primary h-100 d-flex flex-column justify-content-between p-3 text-decoration-none rounded-3 shadow-sm border" data-bs-toggle="modal" data-bs-target="#launchQuizModal">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="activity-icon fs-3"><i class="bi bi-play-fill"></i></div>
+            <div><span class="activity-label badge bg-primary-subtle text-primary fw-bold">EXAMEN</span><h5 class="m-0 mt-1 fw-bold text-dark">Iniciar un examen</h5></div>
+          </div>
+          <p class="text-muted small mb-3">Selecciona un examen existente y crea una sala en vivo.</p>
+          <div class="activity-arrow text-end text-primary fw-bold fs-5"><i class="bi bi-arrow-right"></i></div>
+        </a>
+      </div>
+
+      <!-- 2. EQUIPOS -->
+      <div class="col">
+        <a href="#" class="activity-card activity-team h-100 d-flex flex-column justify-content-between p-3 text-decoration-none rounded-3 shadow-sm border" data-bs-toggle="modal" data-bs-target="#teamRaceModal">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="activity-icon fs-3"><i class="bi bi-flag-fill"></i></div>
+            <div><span class="activity-label badge bg-purple-subtle text-purple fw-bold">EQUIPOS</span><h5 class="m-0 mt-1 fw-bold text-dark">Carrera por equipos</h5></div>
+          </div>
+          <p class="text-muted small mb-3">Convierte un examen en una competencia entre equipos.</p>
+          <div class="activity-arrow text-end text-primary fw-bold fs-5"><i class="bi bi-arrow-right"></i></div>
+        </a>
+      </div>
+
+      <!-- 3. TICKET DE SALIDA -->
+      <div class="col">
+        <a href="#" class="activity-card activity-exit h-100 d-flex flex-column justify-content-between p-3 text-decoration-none rounded-3 shadow-sm border" data-bs-toggle="modal" data-bs-target="#exitTicketModal">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="activity-icon fs-3"><i class="bi bi-door-open-fill"></i></div>
+            <div><span class="activity-label badge bg-warning-subtle text-warning-emphasis fw-bold">CIERRE DE CLASE</span><h5 class="m-0 mt-1 fw-bold text-dark">Ticket de salida</h5></div>
+          </div>
+          <p class="text-muted small mb-3">Tres preguntas rápidas para cerrar la clase.</p>
+          <div class="activity-arrow text-end text-primary fw-bold fs-5"><i class="bi bi-arrow-right"></i></div>
+        </a>
+      </div>
+
+      <!-- 4. V/F -->
+      <div class="col">
+        <a href="#" class="activity-card activity-truefalse h-100 d-flex flex-column justify-content-between p-3 text-decoration-none rounded-3 shadow-sm border" data-bs-toggle="modal" data-bs-target="#trueFalseModal">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="activity-icon fs-3"><i class="bi bi-check2-circle"></i></div>
+            <div><span class="activity-label badge bg-info-subtle text-info fw-bold">PREGUNTA RÁPIDA</span><h5 class="m-0 mt-1 fw-bold text-dark">Verdadero / Falso</h5></div>
+          </div>
+          <p class="text-muted small mb-3">Lanza una pregunta de verdadero o falso.</p>
+          <div class="activity-arrow text-end text-primary fw-bold fs-5"><i class="bi bi-arrow-right"></i></div>
+        </a>
+      </div>
+
+      <!-- 5. SELECCIÓN MÚLTIPLE -->
+      <div class="col">
+        <a href="#" class="activity-card activity-multiple h-100 d-flex flex-column justify-content-between p-3 text-decoration-none rounded-3 shadow-sm border" data-bs-toggle="modal" data-bs-target="#multipleChoiceModal">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="activity-icon fs-3"><i class="bi bi-ui-radios-grid"></i></div>
+            <div><span class="activity-label badge bg-info-subtle text-info fw-bold">PREGUNTA RÁPIDA</span><h5 class="m-0 mt-1 fw-bold text-dark">Selección múltiple</h5></div>
+          </div>
+          <p class="text-muted small mb-3">Haz una pregunta con opciones {a, b, c, d}.</p>
+          <div class="activity-arrow text-end text-primary fw-bold fs-5"><i class="bi bi-arrow-right"></i></div>
+        </a>
+      </div>
+
+      <!-- 6. ABIERTA -->
+      <div class="col">
+        <a href="#" class="activity-card activity-open h-100 d-flex flex-column justify-content-between p-3 text-decoration-none rounded-3 shadow-sm border" data-bs-toggle="modal" data-bs-target="#openAnswerModal">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="activity-icon fs-3"><i class="bi bi-chat-left-text-fill"></i></div>
+            <div><span class="activity-label badge bg-info-subtle text-info fw-bold">PREGUNTA RÁPIDA</span><h5 class="m-0 mt-1 fw-bold text-dark">Respuesta abierta</h5></div>
+          </div>
+          <p class="text-muted small mb-3">Permite que los estudiantes respondan libremente.</p>
+          <div class="activity-arrow text-end text-primary fw-bold fs-5"><i class="bi bi-arrow-right"></i></div>
+        </a>
+      </div>
+
     </div>
+  </section>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL 1 — INICIAR EXAMEN
+═══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="launchQuizModal" tabindex="-1" aria-labelledby="launchQuizModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="launchQuizModalLabel"><i class="bi bi-play-fill me-2"></i>Iniciar un examen</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        {% if user_exams %}
+          <ul class="list-group list-group-flush">
+            {% for exam in user_exams %}
+            <li class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-4 py-3">
+              <div>
+                <span class="fw-semibold text-dark">{{ exam.title }}</span>
+                <small class="d-block text-muted">{{ exam.questions | length }} pregunta(s) · {{ exam.exam_mode or 'instant_feedback' }}</small>
+              </div>
+              <form action="{{ url_for('exams.create_session', exam_id=exam.id) }}" method="POST">
+                <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3">
+                  <i class="bi bi-play-fill me-1"></i>Iniciar
+                </button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-center py-5 text-muted">
+            <i class="bi bi-journal-x fs-1 d-block mb-2"></i>
+            No tienes exámenes creados. <a href="{{ url_for('exams.new_exam_builder') }}">Crea uno aquí.</a>
+          </div>
+        {% endif %}
+      </div>
+      <div class="modal-footer border-0">
+        <a href="{{ url_for('exams.new_exam_builder') }}" class="btn btn-outline-primary btn-sm rounded-pill"><i class="bi bi-plus-lg me-1"></i>Nuevo examen</a>
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL 2 — CARRERA POR EQUIPOS
+═══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="teamRaceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header" style="background:#7c3aed;color:#fff;">
+        <h5 class="modal-title fw-bold"><i class="bi bi-flag-fill me-2"></i>Carrera por equipos</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Paso 1: definir equipos -->
+        <h6 class="fw-bold mb-3 text-purple"><i class="bi bi-people-fill me-1"></i>1. Equipos</h6>
+        <div id="teamsList" class="d-flex flex-wrap gap-2 mb-2">
+          <div class="input-group input-group-sm" style="width:160px;">
+            <input type="text" class="form-control" placeholder="Equipo 1" id="team1Name" value="Rojo">
+          </div>
+          <div class="input-group input-group-sm" style="width:160px;">
+            <input type="text" class="form-control" placeholder="Equipo 2" id="team2Name" value="Azul">
+          </div>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm rounded-pill mb-4" onclick="addTeamInput()"><i class="bi bi-plus me-1"></i>Agregar equipo</button>
+
+        <!-- Paso 2: seleccionar exámenes -->
+        <h6 class="fw-bold mb-3"><i class="bi bi-journal-text me-1"></i>2. Selecciona examen(es)</h6>
+        <div class="mb-3" style="max-height:200px;overflow-y:auto;">
+          {% for exam in user_exams %}
+          <div class="form-check mb-1">
+            <input class="form-check-input team-exam-check" type="checkbox" value="{{ exam.id }}" id="teamExam{{ exam.id }}">
+            <label class="form-check-label" for="teamExam{{ exam.id }}">{{ exam.title }} <small class="text-muted">({{ exam.questions|length }} pregs.)</small></label>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Paso 3: tiempo -->
+        <h6 class="fw-bold mb-2"><i class="bi bi-clock me-1"></i>3. Límite de tiempo (opcional)</h6>
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="teamTimeLimitCheck" onchange="document.getElementById('teamTimeLimitInput').disabled=!this.checked">
+            <label class="form-check-label" for="teamTimeLimitCheck">Activar límite</label>
+          </div>
+          <input type="number" class="form-control form-control-sm" id="teamTimeLimitInput" placeholder="minutos" style="width:100px;" disabled min="1" max="180">
+        </div>
+
+        <div class="alert alert-info py-2 small"><i class="bi bi-info-circle me-1"></i>La sala de carrera por equipos es un <strong>modo avanzado</strong>. La integración completa con sockets requiere el módulo Teams (próxima versión). Actualmente puedes configurar los equipos y luego iniciar el examen manualmente.</div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-purple btn-sm rounded-pill" style="background:#7c3aed;color:#fff;" onclick="startTeamRace()"><i class="bi bi-flag-fill me-1"></i>Crear sala</button>
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL 3 — TICKET DE SALIDA (encuesta de 3 preguntas fijas)
+═══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="exitTicketModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header" style="background:#f59e0b;color:#1c1917;">
+        <h5 class="modal-title fw-bold"><i class="bi bi-door-open-fill me-2"></i>Ticket de salida</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-4">Se lanzarán 3 encuestas secuenciales en la sala indicada. Los estudiantes votan anónimamente y no hay calificación correcta.</p>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Sala (código activo)</label>
+          <input type="text" class="form-control text-uppercase" id="exitTicketRoomCode" placeholder="Ej: ABC123" maxlength="6">
+          <small class="text-muted">Usa el código de una sala ya abierta.</small>
+        </div>
+
+        <div class="mb-2 p-3 border rounded-3 bg-light">
+          <span class="badge bg-warning-subtle text-warning-emphasis mb-1">Pregunta 1 · Escala 1–5</span>
+          <p class="mb-0 fw-semibold">¿Qué tanto entendiste el tema de hoy?</p>
+          <small class="text-muted">Opciones: 1, 2, 3, 4, 5</small>
+        </div>
+        <div class="mb-2 p-3 border rounded-3 bg-light">
+          <span class="badge bg-warning-subtle text-warning-emphasis mb-1">Pregunta 2 · Respuesta abierta</span>
+          <p class="mb-0 fw-semibold">¿Qué aprendiste en la clase de hoy?</p>
+        </div>
+        <div class="mb-3 p-3 border rounded-3 bg-light">
+          <span class="badge bg-warning-subtle text-warning-emphasis mb-1">Pregunta 3 · Respuesta abierta</span>
+          <p class="mb-0 fw-semibold">Responde aquí la pregunta del profesor</p>
+          <div class="mt-2">
+            <label class="form-label small">Personaliza la pregunta (opcional):</label>
+            <input type="text" class="form-control form-control-sm" id="exitTicketCustomQ" placeholder="Escribe tu pregunta aquí…">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-warning btn-sm rounded-pill fw-bold" onclick="launchExitTicket()"><i class="bi bi-send-fill me-1"></i>Lanzar ticket de salida</button>
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL 4a — VERDADERO / FALSO (pregunta rápida)
+═══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="trueFalseModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-check2-circle me-2"></i>Pregunta rápida · V / F</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Sala (código activo)</label>
+          <input type="text" class="form-control text-uppercase" id="tfRoomCode" placeholder="Ej: ABC123" maxlength="6">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Enunciado de la pregunta</label>
+          <textarea class="form-control" id="tfQuestion" rows="3" placeholder="Escribe tu afirmación aquí…"></textarea>
+        </div>
+        <div class="p-3 border rounded-3 bg-light d-flex gap-3">
+          <span class="badge bg-success fs-6 px-3 py-2">✓ Verdadero</span>
+          <span class="badge bg-danger fs-6 px-3 py-2">✗ Falso</span>
+        </div>
+        <small class="text-muted d-block mt-2">Esta encuesta no tiene respuesta correcta marcada; solo mide la opinión/voto del grupo.</small>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-info text-white btn-sm rounded-pill fw-bold" onclick="launchQuickPoll('true_false','tfRoomCode','tfQuestion')"><i class="bi bi-broadcast me-1"></i>Lanzar</button>
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL 4b — SELECCIÓN MÚLTIPLE (pregunta rápida)
+═══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="multipleChoiceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-ui-radios-grid me-2"></i>Pregunta rápida · Selección múltiple</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Sala (código activo)</label>
+          <input type="text" class="form-control text-uppercase" id="mcRoomCode" placeholder="Ej: ABC123" maxlength="6">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Enunciado de la pregunta</label>
+          <textarea class="form-control" id="mcQuestion" rows="3" placeholder="Escribe tu pregunta…"></textarea>
+        </div>
+        <label class="form-label fw-semibold">Opciones (a, b, c, d)</label>
+        <div class="d-flex flex-column gap-2">
+          <div class="input-group"><span class="input-group-text fw-bold bg-primary text-white">A</span><input type="text" class="form-control mc-option" placeholder="Opción A"></div>
+          <div class="input-group"><span class="input-group-text fw-bold bg-primary text-white">B</span><input type="text" class="form-control mc-option" placeholder="Opción B"></div>
+          <div class="input-group"><span class="input-group-text fw-bold bg-primary text-white">C</span><input type="text" class="form-control mc-option" placeholder="Opción C"></div>
+          <div class="input-group"><span class="input-group-text fw-bold bg-primary text-white">D</span><input type="text" class="form-control mc-option" placeholder="Opción D"></div>
+        </div>
+        <small class="text-muted d-block mt-2">Deja en blanco las opciones que no uses.</small>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-info text-white btn-sm rounded-pill fw-bold" onclick="launchMCPoll()"><i class="bi bi-broadcast me-1"></i>Lanzar</button>
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL 4c — RESPUESTA ABIERTA (pregunta rápida)
+═══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="openAnswerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-chat-left-text-fill me-2"></i>Pregunta rápida · Respuesta abierta</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Sala (código activo)</label>
+          <input type="text" class="form-control text-uppercase" id="oaRoomCode" placeholder="Ej: ABC123" maxlength="6">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Pregunta del profesor</label>
+          <textarea class="form-control" id="oaQuestion" rows="4" placeholder="Escribe tu pregunta abierta aquí…"></textarea>
+        </div>
+        <p class="text-muted small">Los estudiantes escribirán su respuesta libre. El instructor verá todas las respuestas en tiempo real.</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-info text-white btn-sm rounded-pill fw-bold" onclick="launchQuickPoll('open_answer','oaRoomCode','oaQuestion')"><i class="bi bi-broadcast me-1"></i>Lanzar</button>
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL DE RESULTADOS DE POLL (flotante, instructor)
+═══════════════════════════════════════════════════════════ -->
+<div id="pollResultsPanel" class="d-none position-fixed bottom-0 end-0 m-4 shadow-lg rounded-4 bg-white border" style="width:340px;max-height:480px;overflow-y:auto;z-index:1080;">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+    <span class="fw-bold"><i class="bi bi-bar-chart-fill text-primary me-2"></i>Resultados en vivo</span>
+    <button class="btn btn-sm btn-outline-danger rounded-pill" onclick="closePollResultsPanel()">✕ Cerrar poll</button>
+  </div>
+  <div class="p-3" id="pollResultsBody">
+    <p class="text-muted small">Esperando respuestas…</p>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Equipo helpers ────────────────────────────────────────────
+let teamCount = 2;
+function addTeamInput() {
+  teamCount++;
+  const div = document.createElement('div');
+  div.className = 'input-group input-group-sm';
+  div.style.width = '160px';
+  div.innerHTML = `<input type="text" class="form-control team-name-input" placeholder="Equipo ${teamCount}" value="Equipo ${teamCount}">`;
+  document.getElementById('teamsList').appendChild(div);
+}
+
+function startTeamRace() {
+  const examIds = [...document.querySelectorAll('.team-exam-check:checked')].map(c => c.value);
+  if (!examIds.length) { alert('Selecciona al menos un examen.'); return; }
+  // Redirige al primer examen seleccionado (integración completa futura)
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `/instructor/session/start/${examIds[0]}`;
+  document.body.appendChild(form);
+  form.submit();
+}
+
+// ── Poll / encuesta helpers ───────────────────────────────────
+let activePollId = null;
+
+async function launchQuickPoll(type, roomFieldId, questionFieldId) {
+  const room = document.getElementById(roomFieldId).value.trim().toUpperCase();
+  const question = document.getElementById(questionFieldId).value.trim();
+  if (!room || !question) { alert('Completa sala y pregunta.'); return; }
+  await _doLaunchPoll({ poll_type: type, room_code: room, question_text: question });
+}
+
+async function launchMCPoll() {
+  const room = document.getElementById('mcRoomCode').value.trim().toUpperCase();
+  const question = document.getElementById('mcQuestion').value.trim();
+  const opts = [...document.querySelectorAll('.mc-option')].map(i => i.value.trim()).filter(Boolean);
+  if (!room || !question) { alert('Completa sala y pregunta.'); return; }
+  if (opts.length < 2) { alert('Agrega al menos 2 opciones.'); return; }
+  await _doLaunchPoll({ poll_type: 'multiple_choice', room_code: room, question_text: question, options: opts });
+}
+
+async function launchExitTicket() {
+  const room = document.getElementById('exitTicketRoomCode').value.trim().toUpperCase();
+  if (!room) { alert('Ingresa el código de sala.'); return; }
+  const customQ = document.getElementById('exitTicketCustomQ').value.trim() || 'Responde aquí la pregunta del profesor';
+  // Lanza 3 polls secuenciales
+  const polls = [
+    { poll_type: 'multiple_choice', room_code: room, question_text: '¿Qué tanto entendiste el tema de hoy?', options: ['1','2','3','4','5'] },
+    { poll_type: 'open_answer',     room_code: room, question_text: '¿Qué aprendiste en la clase de hoy?' },
+    { poll_type: 'open_answer',     room_code: room, question_text: customQ },
+  ];
+  for (const p of polls) {
+    await _doLaunchPoll(p, false);
+    await new Promise(r => setTimeout(r, 300));
+  }
+  showPollResultsPanel({ question_text: 'Ticket de salida lanzado (3 encuestas)', results: {} });
+  bootstrap.Modal.getInstance(document.getElementById('exitTicketModal'))?.hide();
+}
+
+async function _doLaunchPoll(payload, showPanel = true) {
+  try {
+    const res = await fetch('/polls/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Error al crear encuesta'); return; }
+    activePollId = data.poll.id;
+    if (showPanel) showPollResultsPanel(data.poll);
+    // Cierra modales abiertas
+    document.querySelectorAll('.modal.show').forEach(m => bootstrap.Modal.getInstance(m)?.hide());
+  } catch(e) { alert('Error de red: ' + e.message); }
+}
+
+function showPollResultsPanel(poll) {
+  document.getElementById('pollResultsPanel').classList.remove('d-none');
+  renderPollResults(poll);
+}
+
+function renderPollResults(poll) {
+  const body = document.getElementById('pollResultsBody');
+  let html = `<p class="fw-semibold mb-3">${poll.question_text}</p>`;
+  html += `<p class="small text-muted">Votos: <strong id="pollVoteCount">${poll.vote_count || 0}</strong></p>`;
+  const r = poll.results || {};
+  if (Array.isArray(r)) {
+    // Respuestas abiertas
+    html += `<ul class="list-unstyled" id="pollOpenAnswers">`;
+    r.forEach(t => { html += `<li class="border-bottom py-1 small">💬 ${t}</li>`; });
+    html += `</ul>`;
+  } else {
+    // Barras para opciones
+    const total = Object.values(r).reduce((a,b) => a+b, 0) || 1;
+    Object.entries(r).forEach(([opt, cnt]) => {
+      const pct = Math.round(cnt / total * 100);
+      html += `<div class="mb-2">
+        <div class="d-flex justify-content-between small fw-semibold"><span>${opt}</span><span>${cnt}</span></div>
+        <div class="progress" style="height:8px;">
+          <div class="progress-bar bg-primary" style="width:${pct}%"></div>
+        </div></div>`;
+    });
+  }
+  body.innerHTML = html;
+}
+
+async function closePollResultsPanel() {
+  if (activePollId) {
+    await fetch(`/polls/${activePollId}/close`, { method: 'POST' });
+    activePollId = null;
+  }
+  document.getElementById('pollResultsPanel').classList.add('d-none');
+}
+
+// ── Socket: escuchar actualizaciones de polls ─────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof io === 'undefined') return;
+  const sock = io();
+  sock.on('poll_results_updated', (data) => {
+    if (activePollId && data.id === activePollId) renderPollResults(data);
+  });
+  sock.on('poll_closed', (data) => {
+    if (activePollId && data.id === activePollId) renderPollResults(data);
+  });
+  // Suscribir al teacher room (ya manejado por sockets.py con teacher_join)
+  sock.emit('subscribe_teacher_stats');
+  sock.on('teacher_live_stats_updated', (summary) => {
+    const tc = document.getElementById('dashTotalStudentsCount');
+    const rc = document.getElementById('dashActiveRoomsCount');
+    if (tc) tc.textContent = summary.total_connected_students || 0;
+    if (rc) rc.textContent = summary.total_active_sessions || 0;
+  });
+});
+</script>
 {% endblock %}

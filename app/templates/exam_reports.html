@@ -32,9 +32,13 @@
                             </span>
                         </td>
                         <td>
+                            <a href="{{ url_for('exams.session_report', session_id=session_item.id) }}" 
+                               class="btn btn-primary btn-sm me-1 shadow-sm">
+                                <i class="bi bi-bar-chart-line-fill me-1"></i> Ver Reporte
+                            </a>
                             <a href="{{ url_for('exams.download_session_results_excel', session_id=session_item.id) }}" 
-                               class="btn btn-success btn-sm">
-                                📊 Descargar Excel (.xlsx)
+                               class="btn btn-outline-success btn-sm shadow-sm">
+                                <i class="bi bi-file-earmark-excel me-1"></i> Excel
                             </a>
                         </td>
                     </tr>

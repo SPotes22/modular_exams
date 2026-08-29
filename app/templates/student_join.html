@@ -1,25 +1,53 @@
 {% extends 'base.html' %}
-{% block title %}Unirse a Examen{% endblock %}
+{% block title %}Unirse a Examen | MyTraining{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-5">
-        <div class="card shadow">
-            <div class="card-header bg-success text-white text-center">
-                <h4>Unirse a una Evaluación</h4>
+<div class="row justify-content-center py-5">
+    <div class="col-lg-5 col-md-7 col-sm-10">
+        <div class="card socrative-card border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-header border-0 bg-success text-white text-center py-4" style="background: linear-gradient(135deg, #16a34a, #15803d);">
+                <div class="mb-2">
+                    <span class="d-inline-flex align-items-center justify-content-center bg-white text-success rounded-circle shadow-sm" style="width: 50px; height: 50px; font-size: 1.4rem;">
+                        <i class="bi bi-key-fill"></i>
+                    </span>
+                </div>
+                <h4 class="fw-bold mb-1">Unirse a una Evaluación</h4>
+                <p class="mb-0 text-white-50 small">Ingresa el código proporcionado por tu profesor</p>
             </div>
-            <div class="card-body">
+
+            <div class="card-body p-4 p-md-5">
                 <form action="{{ url_for('auth.student_join_exam') }}" method="POST">
                     <div class="mb-3">
-                        <label class="form-label">Nombre Completo</label>
-                        <input type="text" name="student_name" class="form-control" placeholder="Ej. Santiago Potes" required>
+                        <label class="form-label fw-semibold small text-muted">Tu Nombre Completo</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
+                            <input type="text" name="student_name" class="form-control border-start-0" placeholder="Ej. Santiago Potes" value="{{ current_user.full_name if current_user.is_authenticated else '' }}" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Código de la Sala</label>
-                        <input type="text" name="session_code" class="form-control text-uppercase" placeholder="Ej. A1B2C3" required maxlength="6">
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold small text-muted">Código de Sala</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-hash text-muted"></i></span>
+                            <input type="text" name="session_code" class="form-control border-start-0 text-uppercase font-monospace fw-bold" placeholder="Ej. A1B2C3" required maxlength="10" style="letter-spacing: 2px;">
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-success w-100">Entrar a la Sala</button>
+
+                    <button type="submit" class="btn btn-success w-100 py-3 fw-bold text-white shadow-sm" style="font-size: 1rem; border-radius: 12px;">
+                        <i class="bi bi-box-arrow-in-right me-2"></i> Entrar a la Sala
+                    </button>
                 </form>
+            </div>
+
+            <div class="card-footer bg-light text-center py-3 border-0">
+                <p class="mb-2 text-muted small">
+                    ¿Quieres guardar tu progreso y ver tus cursos? <a href="{{ url_for('auth.register') }}" class="fw-bold text-primary">Crea una cuenta aquí</a>
+                </p>
+                <div class="pt-2 border-top">
+                    <p class="mb-0 text-muted" style="font-size: 0.85rem;">
+                        ¿Eres profesor? <a href="{{ url_for('auth.login') }}" class="fw-semibold text-decoration-underline">Inicia sesión como docente</a>
+                    </p>
+                </div>
             </div>
         </div>
     </div>

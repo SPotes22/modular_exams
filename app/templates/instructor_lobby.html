@@ -24,6 +24,9 @@
             <button id="btn-next-question" class="btn btn-primary btn-lg shadow-sm d-none" onclick="nextTeacherQuestion()">
                 <i class="bi bi-arrow-right-circle-fill me-1"></i> Siguiente Pregunta
             </button>
+            <a href="{{ url_for('exams.session_report', session_id=session.id) }}" class="btn btn-outline-primary btn-lg shadow-sm">
+                <i class="bi bi-bar-chart-line-fill me-1"></i> Ver Reporte
+            </a>
             <form action="{{ url_for('exams.close_session', session_id=session.id) }}" method="POST" class="d-inline">
                 <button type="submit" class="btn btn-outline-danger btn-lg shadow-sm" onclick="return confirm('¿Desea finalizar esta sala de examen?');">
                     <i class="bi bi-stop-circle-fill me-1"></i> Finalizar Sala

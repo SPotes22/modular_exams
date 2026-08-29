@@ -479,221 +479,43 @@
                 margin-top: 0.5rem;
             }
         }
-	/* =========================================================
-       LAYOUT PRINCIPAL - EXAM LIBRARY
-       ========================================================= */
-
-    .parent {
-        display: grid;
-        grid-template-columns: 300px minmax(130px, 170px) minmax(130px, 170px) 1fr;
-        grid-template-rows: auto 1fr;
-        gap: 14px;
-        width: 100%;
-        align-items: stretch;
-    }
-
-    /* =========================================================
-       DIV 1 - BIBLIOTECA (CARPETAS Y CLASES)
-       ========================================================= */
-
-    .div1 {
-        grid-column: 1;
-        grid-row: 1 / -1;
-
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-    }
-
-    .div1 > .d-flex {
-        flex-direction: column;
-        align-items: flex-start !important;
-    }
-
-    /* =========================================================
-       DIV 2 - LISTA DE EXÁMENES (ACTIVOS / ELIMINADOS)
-       ========================================================= */
-
-    .div2 {
-        grid-column: 2 / -1;
-        grid-row: 2;
-        min-width: 0;
-        overflow-x: hidden;
-    }
-
-    .div2 .row {
-        display: flex;
-        flex-direction: column;
-        flex-wrap: nowrap;
-        gap: 12px;
-        width: 100%;
-        margin: 0 !important;
-    }
-
-    .div2 .row > [class*="col-"] {
-        flex: 0 0 auto;
-        width: 100%;
-        max-width: 100%;
-        padding: 0;
-        margin-bottom: 0 !important;
-    }
-
-    .div2 .exam-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        box-shadow: var(--shadow-sm);
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
-    }
-
-    .div2 .exam-card:hover {
-        box-shadow: var(--shadow-md);
-    }
-
-    .div2 .exam-card.deleted-card {
-        border-left: 4px solid var(--danger);
-        background: #fffdfd;
-    }
-
-    /* =========================================================
-       DIV 3 - TAB QUICES (ACTIVOS)
-       ========================================================= */
-
-    .div3 {
-        grid-column: 2;
-        grid-row: 1;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 48px;
-    }
-
-    .div3 .nav-tab-btn,
-    .div5 .nav-tab-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        height: 100%;
-        padding: 0.55rem 0.9rem;
-        border-radius: 12px;
-        font-weight: 700;
-        font-size: 0.88rem;
-        text-decoration: none;
-        transition: all 0.18s ease;
-        border: 1px solid var(--border);
-        background: var(--surface);
-        color: var(--muted);
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .div3 .nav-tab-btn:hover {
-        color: var(--primary);
-        background: #eff6ff;
-        border-color: #bfdbfe;
-        transform: translateY(-1px);
-    }
-
-    .div3 .nav-tab-btn.active {
-        background: #eff6ff;
-        color: var(--primary);
-        border-color: #3b82f6;
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
-    }
-
-    /* =========================================================
-       DIV 5 - TAB ELIMINADOS (PAPELERA)
-       ========================================================= */
-
-    .div5 {
-        grid-column: 3;
-        grid-row: 1;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 48px;
-    }
-
-    .div5 .nav-tab-btn:hover {
-        color: var(--danger);
-        background: #fef2f2;
-        border-color: #fecaca;
-        transform: translateY(-1px);
-    }
-
-    .div5 .nav-tab-btn.active {
-        background: #fef2f2;
-        color: var(--danger);
-        border-color: #ef4444;
-        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.12);
-    }
-
-    /* =========================================================
-       DIV 4 - BUSCADOR Y ACCIONES
-       ========================================================= */
-
-    .div4 {
-        grid-column: 4;
-        grid-row: 1;
-
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        min-height: 48px;
-    }
-
-    .div4 .d-flex {
-        gap: 8px;
-        align-items: center;
-        justify-content: flex-end !important;
-        width: 100%;
-    }
-
-    .div4 .btn {
-        width: auto;
-        min-width: auto;
-        padding: 6px 12px !important;
-        font-size: 0.84rem;
-        white-space: nowrap;
-    }
-
-    @media (max-width: 991.98px) {
-        .parent {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .div1, .div2, .div3, .div4, .div5 {
-            width: 100%;
-        }
-
-        .div4 .d-flex {
-            flex-wrap: wrap !important;
-            justify-content: stretch !important;
-        }
-        
-        .div4 .search-container {
-            width: 100% !important;
-        }
-    }
- 
 
 
+	.parent {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 8px;
+}
 
+.div1 {
+    grid-row: span 5 / span 5;
+}
 
+.div2 {
+    grid-column: span 4 / span 4;
+    grid-row: span 4 / span 4;
+    grid-column-start: 2;
+    grid-row-start: 2;
+}
 
+.div3 {
+    grid-column-start: 2;
+    grid-row-start: 1;
+}
 
+.div4 {
+    grid-column-start: 5;
+    grid-row-start: 1;
+}
 
-
-
+.div5 {
+    grid-column-start: 3;
+    grid-row-start: 1;
+}
     </style>
 
     {% block head %}{% endblock %}
-  
 </head>
 
 
@@ -710,12 +532,17 @@
             <!-- Brand -->
             <a
                 class="navbar-brand brand"
-                href="{{ url_for('exams.instructor_dashboard') }}"
+                href="{{ url_for('auth.home') }}"
             >
                 <span class="brand-mark">
                     <i class="bi bi-lightning-charge-fill"></i>
                 </span>
 
+                <span>MyTraining</span>
+
+                <span class="brand-subtitle d-none d-sm-inline">
+                    LIVE LEARNING
+                </span>
             </a>
 
 
@@ -762,14 +589,22 @@
 
                             <a
                                 class="nav-link app-nav-link"
+                                href="{{ url_for('questions.mis_preguntas') }}"
+                            >
+                                <i class="bi bi-question-circle me-1"></i>
+                                Preguntas
+                            </a>
+
+
+                            <a
+                                class="nav-link app-nav-link"
                                 href="{{ url_for('exams.library') }}"
                             >
                                 <i class="bi bi-file-earmark-text me-1"></i>
                                 Exámenes
                             </a>
-                
-                    
-                            
+
+
                             <a
                                 class="nav-link app-nav-link"
                                 href="{{ url_for('exams.classes') }}"
@@ -777,14 +612,7 @@
                                 <i class="bi bi-people me-1"></i>
                                 Clases
                             </a>
-                    
-                            <a
-                                class="nav-link app-nav-link"
-                                href="{{ url_for('questions.mis_preguntas') }}"
-                            >
-                                <i class="bi bi-question-circle me-1"></i>
-                                Preguntas
-                            </a>
+
 
                             <a
                                 class="nav-link app-nav-link"
@@ -795,15 +623,6 @@
                             </a>
 
 
-                            
-                            <a
-                                class="nav-link app-nav-link"
-                                href="{{ url_for('exams.results_overview') }}"
-                            >
-                                <i class="bi bi-bar-chart-line me-1"></i>
-                                Resultados
-                            </a>
-
                             <a
                                 class="nav-link app-nav-link"
                                 href="{{ url_for('exams.history') }}"
@@ -813,6 +632,13 @@
                             </a>
 
 
+                            <a
+                                class="nav-link app-nav-link"
+                                href="{{ url_for('exams.results_overview') }}"
+                            >
+                                <i class="bi bi-bar-chart-line me-1"></i>
+                                Resultados
+                            </a>
 
                             <!-- Live Active Rooms & Students Counter Badge -->
                             <div class="dropdown mx-lg-1 my-1 my-lg-0" id="navLiveStatsWidget">

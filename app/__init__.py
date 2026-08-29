@@ -2,7 +2,7 @@
 from flask import Flask
 from sqlalchemy import inspect
 from app.config import Config
-from app.extensions import db, login_manager, socketio
+from app.extensions import db, login_manager, socketio # csrf
 
 def _add_column_if_missing(conn, table_columns, table_name, column_name, ddl):
     if column_name not in table_columns:
@@ -26,6 +26,7 @@ def ensure_schema():
         _add_column_if_missing(conn, exam_columns, 'exams', 'instructions', 'TEXT')
         _add_column_if_missing(conn, exam_columns, 'exams', 'group_id', 'INTEGER')
         _add_column_if_missing(conn, exam_columns, 'exams', 'status', "VARCHAR(20) DEFAULT 'DRAFT'")
+        _add_column_if_missing(conn, exam_columns, 'exams', 'active', 'BOOLEAN DEFAULT 1')
         _add_column_if_missing(conn, exam_columns, 'exams', 'allow_multiple_attempts', 'BOOLEAN DEFAULT 0')
         _add_column_if_missing(conn, exam_columns, 'exams', 'max_attempts', 'INTEGER DEFAULT 1')
         _add_column_if_missing(conn, exam_columns, 'exams', 'created_at', 'DATETIME')
@@ -41,10 +42,18 @@ def ensure_schema():
         _add_column_if_missing(conn, attempt_columns, 'exam_attempts', 'max_points', 'FLOAT DEFAULT 0')
         _add_column_if_missing(conn, answer_columns, 'student_answers', 'answer_text', 'TEXT')
         _add_column_if_missing(conn, answer_columns, 'student_answers', 'points_awarded', 'FLOAT DEFAULT 0')
+        _add_column_if_missing(conn, answer_columns, 'student_answers', 'question_snapshot_id', 'INTEGER')
+        _add_column_if_missing(conn, answer_columns, 'student_answers', 'question_statement', 'TEXT')
+        _add_column_if_missing(conn, answer_columns, 'student_answers', 'selected_option_text', 'TEXT')
+        _add_column_if_missing(conn, answer_columns, 'student_answers', 'correct_answer_text', 'TEXT')
         _add_column_if_missing(conn, user_columns, 'users', 'default_exam_view', "VARCHAR(40) DEFAULT 'questions'")
+        _add_column_if_missing(conn, user_columns, 'users', 'first_name', "VARCHAR(80)")
+        _add_column_if_missing(conn, user_columns, 'users', 'last_name', "VARCHAR(80)")
+        _add_column_if_missing(conn, user_columns, 'users', 'phone', "VARCHAR(30)")
+        _add_column_if_missing(conn, user_columns, 'users', 'institution', "VARCHAR(150)")
 
 def init_db():
-    from app.models import User, Bank, Question, QuestionOption, Exam, ExamQuestion, ExamClass, ExamGroup, Learning, LearningModule, Lesson, Block, LearningProgress, BlockAnswer
+    from app.models import ( User, Bank, Question, QuestionOption, Exam, ExamQuestion, ExamClass, ExamGroup, Learning, LearningModule, Lesson, Block, LearningProgress, BlockAnswer, SessionQuestionSnapshot, Poll, PollVote )
     db.create_all()
     ensure_schema()
 
@@ -122,6 +131,7 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     socketio.init_app(app)
+    #csrf.init_app(app)
 
     with app.app_context():
         init_db()
@@ -133,6 +143,8 @@ def create_app():
     from app.blueprints.media import media_bp
     from app.blueprints.admin import admin_bp
     from app.blueprints.learning import learning_bp
+    from app.blueprints.polls import polls_bp
+    from app.blueprints.polls import sockets as polls_sockets 
     from app.realtime import sockets  # noqa: F401
 
     app.register_blueprint(auth_bp)
@@ -141,6 +153,7 @@ def create_app():
     app.register_blueprint(exams_bp)
     app.register_blueprint(media_bp)
     app.register_blueprint(learning_bp)
+    app.register_blueprint(polls_bp)
 
     return app
 

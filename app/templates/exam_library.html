@@ -1,1 +1,610 @@
-{% extends 'base.html' %}{% block title %}Mis exámenes{% endblock %}{% block content %}<div class="d-flex justify-content-between"><h1>Biblioteca de exámenes</h1><a class="btn btn-primary" href="{{ url_for('exams.new_exam_builder') }}">Crear examen</a></div><div class="row mt-3">{% for exam in exams %}<div class="col-md-6 mb-3"><div class="card shadow-sm"><div class="card-body"><h5>{{ exam.title }}</h5><p class="text-muted">{{ exam.questions|length }} preguntas · {{ exam.questions|sum(attribute='points') }} pts · {{ exam.status }} · {{ exam.created_at.strftime('%Y-%m-%d') if exam.created_at else '' }}</p><a class="btn btn-sm btn-primary" href="{{ url_for('exams.edit_exam_builder', exam_id=exam.id) }}">Editar</a><a class="btn btn-sm btn-success" href="{{ url_for('exams.configure_session', exam_id=exam.id) }}">Crear sala</a><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('exams.export_exam_document', exam_id=exam.id, answers='without-answers') }}">Exportar sin respuestas</a><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('exams.export_exam_document', exam_id=exam.id, answers='with-answers') }}">Con respuestas</a><form class="d-inline" method="post" action="{{ url_for('exams.duplicate_exam', exam_id=exam.id) }}"><button class="btn btn-sm btn-info">Duplicar</button></form><form class="d-inline" method="post" action="{{ url_for('exams.delete_exam', exam_id=exam.id) }}"><button class="btn btn-sm btn-danger" onclick="return confirm('Eliminar examen?')">Eliminar</button></form></div></div></div>{% endfor %}</div>{% endblock %}
+{% extends 'base.html' %}	
+	
+{% block title %}Mis exámenes - Biblioteca{% endblock %}
+
+{% block content %}
+
+<div class="parent">
+    <!-- DIV 1: BIBLIOTECA / CARPETAS DE CLASE -->
+    <div class="div1">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+          <div>
+            <p class="h2 fw-bold text-slate-800 mb-1">
+              <i class="bi bi-folder-fill text-warning me-2"></i>
+                Biblioteca
+            </p>
+            <p class="text-muted small mb-0">Organiza tus exámenes en carpetas por asignatura o grupo.</p>
+          </div>
+        </div>
+        
+        <!-- Class Folders Grid -->
+        <div class="d-flex flex-column gap-3 mb-4">
+          {% for cls in classes %}
+            <div class="w-100">
+              <div class="socrative-card p-4 h-100 position-relative">
+                <!-- Folder Header -->
+                <div class="d-flex justify-content-between align-items-start mb-3 border-bottom pb-3">
+                  <div class="d-flex align-items-center gap-3">
+                    <div>
+                      <p class="h5 fw-bold mb-1 text-slate-800">{{ cls.name }}</p>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold">
+                          <i class="bi bi-journal-bookmark me-1"></i>{{ cls.subject or 'General' }}
+                        </span>
+                        <span class="text-muted small">• 
+                            {{ cls.exams|length }} examen{{ 'es' if cls.exams|length != 1 else '' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+        
+                  <!-- Delete Class Form -->
+                  <form method="post" action="{{ url_for('exams.delete_class', class_id=cls.id) }}" 
+                      onsubmit="return confirm('¿Eliminar esta carpeta de clase?')">
+                    <button type="submit" 
+                        class="btn btn-outline-danger btn-sm rounded-circle d-flex align-items-center justify-content-center" 
+                        title="Eliminar Carpeta" 
+                        style="width: 34px; height: 34px;">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </div>
+        
+                {% if cls.description %}
+                  <p class="text-muted small mb-3">{{ cls.description }}</p>
+                {% endif %}
+        
+                <!-- Assign Exam to Folder Form -->
+                <form method="post" 
+                    action="{{ url_for('exams.assign_exam_class', class_id=cls.id) }}" 
+                    class="mb-3">
+                  <label class="form-label small fw-semibold text-muted mb-1">
+                      <i class="bi bi-plus-circle me-1"></i>
+                      Guardar un examen en esta carpeta:
+                  </label>
+                  <div class="input-group input-group-sm">
+                    <select name="exam_id" 
+                        class="form-select form-select-sm" 
+                        required>
+                      <option value="" disabled selected>
+                          Selecciona un examen para agregar...
+                      </option>
+                      {% for exam in exams %}
+                        {% if exam not in cls.exams %}
+                          <option value="{{ exam.id }}">
+                              {{ exam.title }} ({{ exam.questions|length }} preg.)
+                          </option>
+                        {% endif %}
+                      {% endfor %}
+                    </select>
+                    <button class="btn btn-outline-primary btn-sm fw-semibold">
+                        <i class="bi bi-box-arrow-in-down me-1"></i>
+                        Guardar
+                    </button>
+                  </div>
+                </form>
+        
+                <!-- Exams Inside Folder List -->
+                <div class="small fw-semibold text-muted mb-2">
+                    <i class="bi bi-file-earmark-text me-1"></i>
+                    Exámenes archivados en esta carpeta:
+                </div>
+                <div class="d-grid gap-2">
+                  {% for exam in cls.exams %}
+                    <div class="p-2 px-3 bg-light rounded-3 border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                      <div>
+                        <div class="fw-bold text-slate-800" style="font-size: 0.9rem;">{{ exam.title }}</div>
+                        <div class="text-muted small" style="font-size: 0.75rem;">
+                          <i class="bi bi-clock me-1"></i>
+                            {{ exam.duration_minutes }} min · {{ exam.questions|length }} preguntas
+                        </div>
+                      </div>
+                      <div class="d-flex gap-1">
+                        <a href="{{ url_for('exams.edit_exam_builder', exam_id=exam.id) }}" 
+                            class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0" 
+                            style="font-size: 0.78rem;" 
+                            title="Editar examen">
+                          <i class="bi bi-pencil me-1"></i>Editar
+                        </a>
+                        <a href="{{ url_for('exams.configure_session', exam_id=exam.id) }}"
+                            class="btn btn-sm btn-success rounded-pill px-2 py-0" 
+                            style="font-size: 0.78rem;" 
+                            title="Crear Sala">
+                          <i class="bi bi-play me-1"></i>Sala
+                        </a>
+                        <form method="post" 
+                            action="{{ url_for('exams.remove_exam_from_class', class_id=cls.id, exam_id=exam.id) }}" 
+                            class="d-inline">
+                          <button type="submit" 
+                              class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0" 
+                              style="font-size: 0.78rem;" 
+                              title="Quitar de esta carpeta" 
+                              onclick="return confirm('¿Quitar examen de esta carpeta?')">
+                            <i class="bi bi-x-lg"></i>
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  {% else %}
+                    <div class="p-3 text-center text-muted small bg-light rounded-3 border border-dashed">
+                      <i class="bi bi-folder-symlink me-1"></i>Esta carpeta no tiene exámenes archivados aún.
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          {% else %}
+            <div class="w-100">
+              <div class="socrative-card p-4 text-center my-2">
+                <i class="bi bi-folder2-open fs-2 text-muted d-block mb-2"></i>
+                <h3 class="h6 fw-bold text-slate-700">Sin carpetas de clases</h3>
+                <p class="text-muted small mb-3">
+                    Crea carpetas para agrupar tus exámenes por asignatura o nivel.
+                </p>
+                <button type="button" 
+                    class="btn btn-brand btn-sm rounded-pill px-3" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#createClassModal">
+                  <i class="bi bi-folder-plus me-1"></i>
+                    Crear primera carpeta
+                </button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        
+        <!-- Create Class Folder Modal -->
+        <div class="modal fade" id="createClassModal" tabindex="-1" aria-labelledby="createClassModalLabel" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-lg);">
+              <form method="post" action="{{ url_for('exams.classes') }}">
+                <div class="modal-header bg-light">
+                  <h5 class="modal-title fw-bold" id="createClassModalLabel">
+                      <i class="bi bi-folder-plus text-primary me-2"></i>
+                      Nueva Carpeta de Clase
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Nombre de la Clase / Carpeta</label>
+                    <input name="name" class="form-control" placeholder="ej. Auditoría 2026 - Grupo 1" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Asignatura / Materia</label>
+                    <input name="subject" class="form-control" placeholder="ej. Programación, Bases de Datos, Ciberseguridad">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Descripción u Observaciones (Opcional)</label>
+                    <textarea name="description" class="form-control" rows="2" placeholder="ej. Exámenes parciales y quices..."></textarea>
+                  </div>
+                </div>
+                <div class="modal-footer bg-light">
+                  <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                  <button type="submit" class="btn btn-brand rounded-pill px-4">
+                      <i class="bi bi-check-lg me-1"></i>
+                      Crear Carpeta
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+    </div>
+
+    <!-- DIV 3: TAB QUICES (ACTIVOS) -->
+    <div class="div3">
+	    <a href="javascript:void(0)" id="tabActiveBtn" class="nav-tab-btn active" onclick="switchLibraryTab('active')">
+            <i class="bi bi-card-checklist me-2 text-primary fs-5"></i>
+            <span>Quices</span>
+            <span class="badge bg-primary text-white rounded-pill ms-2" id="badgeActiveCount">{{ exams|length }}</span>
+        </a>
+    </div>
+
+    <!-- DIV 5: TAB ELIMINADOS (PAPELERA) -->
+    <div class="div5">
+        <a href="javascript:void(0)" id="tabDeletedBtn" class="nav-tab-btn" onclick="switchLibraryTab('deleted')">
+            <i class="bi bi-trash3 me-2 text-danger fs-5"></i>
+            <span>Eliminados</span>
+            <span class="badge bg-secondary text-white rounded-pill ms-2" id="badgeDeletedCount">{{ deleted_exams|length }}</span>
+        </a>
+    </div>
+
+    <!-- DIV 4: BUSCADOR Y BOTONES DE ACCIÓN -->
+    <div class="div4">
+        <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
+            <!-- Barra de Búsqueda por Nombre -->
+            <div class="input-group input-group-sm search-container" style="max-width: 320px; width: 100%;">
+                <span class="input-group-text bg-white border-end-0 text-muted">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" 
+                       id="examSearchInput" 
+                       class="form-control border-start-0 ps-0" 
+                       placeholder="Buscar examen..." 
+                       aria-label="Buscar examen">
+                <button class="btn btn-outline-secondary d-none border-start-0" 
+                        id="examSearchClearBtn" 
+                        type="button" 
+                        title="Limpiar búsqueda">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+                <button class="btn btn-primary fw-semibold px-3" 
+                        id="examSearchBtn" 
+                        type="button" 
+                        title="Buscar">
+                    Buscar
+                </button>
+            </div>
+
+            <!-- Botones Principales -->
+        	<a class="btn btn-primary rounded-pill px-3 shadow-sm fw-semibold d-inline-flex align-items-center" 
+               href="{{ url_for('exams.new_exam_builder') }}">
+                <i class="bi bi-plus-lg me-1"></i>
+                Crear examen
+            </a>
+            <button class="btn btn-outline-primary rounded-pill px-3 shadow-sm fw-semibold d-inline-flex align-items-center" 
+                  data-bs-toggle="modal" 
+                  data-bs-target="#createClassModal">
+                <i class="bi bi-folder-plus me-1"></i>
+                Nueva Carpeta
+            </button>
+        </div>  
+    </div>
+
+    <!-- DIV 2: CONTENIDO DE EXÁMENES LISTADOS -->
+    <div class="div2">
+        <!-- VISTA 1: EXÁMENES ACTIVOS (QUICES) -->
+        <div id="activeExamsView" class="w-100">
+            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                <span class="text-muted small fw-semibold">
+                    <i class="bi bi-layers me-1 text-primary"></i>
+                    Exámenes activos disponibles en la plataforma (<span id="visibleActiveCount">{{ exams|length }}</span>)
+                </span>
+            </div>
+
+            <div class="row" id="activeExamsList">
+            	{% for exam in exams %}
+            	<div class="col-12 exam-item-card" data-title="{{ exam.title|lower }}" data-status="{{ exam.status|lower }}">
+            		<div class="card exam-card p-3 shadow-sm">
+            			<div class="card-body p-1">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                                <div>
+                                    <h5 class="fw-bold text-slate-800 mb-1 d-flex align-items-center gap-2">
+                                        <i class="bi bi-journal-code text-primary"></i>
+                                        <span>{{ exam.title }}</span>
+                                    </h5>
+                                    <div class="d-flex align-items-center flex-wrap gap-2 text-muted small mt-1">
+                                        <span class="badge bg-light text-secondary border">
+                                            <i class="bi bi-question-circle me-1"></i>{{ exam.questions|length }} preguntas
+                                        </span>
+                                        <span class="badge bg-light text-secondary border">
+                                            <i class="bi bi-award me-1"></i>{{ exam.questions|sum(attribute='points') }} pts
+                                        </span>
+                                        <span class="badge bg-light text-secondary border">
+                                            <i class="bi bi-clock me-1"></i>{{ exam.duration_minutes }} min
+                                        </span>
+                                        <span class="badge {{ 'bg-success-subtle text-success' if exam.status == 'PUBLISHED' else 'bg-warning-subtle text-warning' }} border">
+                                            {{ exam.status }}
+                                        </span>
+                                        {% if exam.classes %}
+                                            {% for c in exam.classes %}
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                    <i class="bi bi-folder me-1"></i>{{ c.name }}
+                                                </span>
+                                            {% endfor %}
+                                        {% endif %}
+                                        <span class="text-muted" style="font-size: 0.78rem;">
+                                            <i class="bi bi-calendar3 me-1"></i>{{ exam.created_at.strftime('%Y-%m-%d') if exam.created_at else '' }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Botones de acción del Examen -->
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <a class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" 
+                                        href="{{ url_for('exams.edit_exam_builder', exam_id=exam.id) }}"
+                                        title="Editar examen">
+                                        <i class="bi bi-pencil me-1"></i>Editar
+                                    </a>
+
+                                    <a class="btn btn-sm btn-success rounded-pill px-3 fw-semibold text-white" 
+                                        href="{{ url_for('exams.configure_session', exam_id=exam.id) }}"
+                                        title="Iniciar sala en vivo">
+                                        <i class="bi bi-play-fill me-1"></i>Crear sala
+                                    </a>
+
+                                    <div class="dropdown d-inline">
+                                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 dropdown-toggle fw-semibold" 
+                                                type="button" 
+                                                data-bs-toggle="dropdown" 
+                                                aria-expanded="false">
+                                            <i class="bi bi-download me-1"></i>Exportar
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                            <li>
+                                                <a class="dropdown-item small" 
+                                                   href="{{ url_for('exams.export_exam_document', exam_id=exam.id, answers='without-answers') }}">
+                                                    <i class="bi bi-file-earmark me-2 text-muted"></i>Sin respuestas (Para imprimir)
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item small" 
+                                                   href="{{ url_for('exams.export_exam_document', exam_id=exam.id, answers='with-answers') }}">
+                                                    <i class="bi bi-file-earmark-check me-2 text-success"></i>Con respuestas (Plantilla clave)
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <form class="d-inline" 
+                                        method="post" 
+                                        action="{{ url_for('exams.duplicate_exam', exam_id=exam.id) }}">
+                                        <button class="btn btn-sm btn-outline-info rounded-pill px-3 fw-semibold" 
+                                                title="Crear una copia idéntica de este examen">
+                                            <i class="bi bi-copy me-1"></i>Duplicar
+                                        </button>
+                                    </form>
+
+                                    <!-- Soft Delete: Desactivar examen -->
+                                    <form class="d-inline" 
+                                        method="post" 
+                                        action="{{ url_for('exams.delete_exam', exam_id=exam.id) }}"
+                                        onsubmit="return confirm('¿Mover el examen \'{{ exam.title }}\' a la papelera de eliminados? No se borrará de la base de datos y podrás restaurarlo cuando quieras.')">
+                                        <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold" 
+                                                title="Mover a Eliminados">
+                                            <i class="bi bi-trash me-1"></i>Eliminar
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+            			</div>
+            		</div>
+            	</div>
+            	{% else %}
+                <div class="col-12 py-5 text-center bg-white rounded-4 border border-dashed my-2" id="noActiveExamsDefault">
+                    <i class="bi bi-journal-plus text-muted fs-1 d-block mb-3"></i>
+                    <h5 class="fw-bold text-slate-700">No tienes exámenes creados aún</h5>
+                    <p class="text-muted small mb-4">Crea tu primer examen para comenzar a evaluar a tus estudiantes en tiempo real.</p>
+                    <a class="btn btn-brand rounded-pill px-4 shadow-sm" href="{{ url_for('exams.new_exam_builder') }}">
+                        <i class="bi bi-plus-lg me-1"></i>Crear mi primer examen
+                    </a>
+                </div>
+            	{% endfor %}
+            </div>
+
+            <!-- Empty Search Results in Active Tab -->
+            <div class="py-5 text-center bg-white rounded-4 border border-dashed my-2 d-none" id="activeSearchNoResults">
+                <i class="bi bi-search text-muted fs-1 d-block mb-2"></i>
+                <h5 class="fw-bold text-slate-700">No se encontraron exámenes activos</h5>
+                <p class="text-muted small mb-3">No hay coincidencias para tu búsqueda en los exámenes creados.</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="clearExamSearch()">
+                    <i class="bi bi-x-circle me-1"></i>Limpiar búsqueda
+                </button>
+            </div>
+        </div>
+
+        <!-- VISTA 2: EXÁMENES ELIMINADOS (DESACTIVADOS EN BD) -->
+        <div id="deletedExamsView" class="w-100 d-none">
+            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                <span class="text-muted small fw-semibold">
+                    <i class="bi bi-trash3 me-1 text-danger"></i>
+                    Papelera de reciclaje: exámenes desactivados (<span id="visibleDeletedCount">{{ deleted_exams|length }}</span>)
+                </span>
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">
+                    <i class="bi bi-info-circle me-1"></i>Los exámenes aquí desactivados pueden restaurarse en cualquier momento
+                </span>
+            </div>
+
+            <div class="row" id="deletedExamsList">
+            	{% for exam in deleted_exams %}
+            	<div class="col-12 exam-item-card" data-title="{{ exam.title|lower }}" data-status="{{ exam.status|lower }}">
+            		<div class="card exam-card deleted-card p-3 shadow-sm">
+            			<div class="card-body p-1">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <h5 class="fw-bold text-slate-800 mb-0">
+                                            <span>{{ exam.title }}</span>
+                                        </h5>
+                                        <span class="badge bg-danger text-white rounded-pill" style="font-size: 0.72rem;">
+                                            <i class="bi bi-eye-slash me-1"></i>Desactivado
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-center flex-wrap gap-2 text-muted small mt-1">
+                                        <span class="badge bg-light text-secondary border">
+                                            <i class="bi bi-question-circle me-1"></i>{{ exam.questions|length }} preguntas
+                                        </span>
+                                        <span class="badge bg-light text-secondary border">
+                                            <i class="bi bi-award me-1"></i>{{ exam.questions|sum(attribute='points') }} pts
+                                        </span>
+                                        <span class="badge bg-light text-secondary border">
+                                            <i class="bi bi-clock me-1"></i>{{ exam.duration_minutes }} min
+                                        </span>
+                                        <span class="text-muted" style="font-size: 0.78rem;">
+                                            <i class="bi bi-calendar-x me-1"></i>Última actualización: {{ exam.updated_at.strftime('%Y-%m-%d %H:%M') if exam.updated_at else exam.created_at.strftime('%Y-%m-%d') if exam.created_at else '' }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Botones de acción para Exámenes Eliminados -->
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <!-- Restaurar Examen (active = True) -->
+                                    <form class="d-inline" 
+                                        method="post" 
+                                        action="{{ url_for('exams.restore_exam', exam_id=exam.id) }}">
+                                        <button class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold d-inline-flex align-items-center" 
+                                                title="Reactivar y devolver a la lista principal">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i>Restaurar
+                                        </button>
+                                    </form>
+
+                                    <!-- Eliminar permanentemente de la BD -->
+                                    <form class="d-inline" 
+                                        method="post" 
+                                        action="{{ url_for('exams.delete_exam_permanent', exam_id=exam.id) }}"
+                                        onsubmit="return confirm('¿ATENCIÓN: Estás seguro de borrar permanentemente el examen \'{{ exam.title }}\' de la base de datos? Esta acción NO se puede deshacer.')">
+                                        <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold d-inline-flex align-items-center" 
+                                                title="Eliminar de forma definitiva de la base de datos">
+                                            <i class="bi bi-trash-fill me-1"></i>Eliminar de la BD
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+            			</div>
+            		</div>
+            	</div>
+            	{% else %}
+                <div class="col-12 py-5 text-center bg-white rounded-4 border border-dashed my-2" id="noDeletedExamsDefault">
+                    <i class="bi bi-trash3 text-muted fs-1 d-block mb-3"></i>
+                    <h5 class="fw-bold text-slate-700">La papelera está vacía</h5>
+                    <p class="text-muted small mb-0">No tienes exámenes eliminados o desactivados en este momento.</p>
+                </div>
+            	{% endfor %}
+            </div>
+
+            <!-- Empty Search Results in Deleted Tab -->
+            <div class="py-5 text-center bg-white rounded-4 border border-dashed my-2 d-none" id="deletedSearchNoResults">
+                <i class="bi bi-search text-muted fs-1 d-block mb-2"></i>
+                <h5 class="fw-bold text-slate-700">No se encontraron exámenes eliminados</h5>
+                <p class="text-muted small mb-3">No hay coincidencias para tu búsqueda en la papelera.</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="clearExamSearch()">
+                    <i class="bi bi-x-circle me-1"></i>Limpiar búsqueda
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JAVASCRIPT: MANEJO DE TABS (DIV 3 & DIV 5) Y BÚSQUEDA (DIV 4) -->
+<script>
+    let currentTab = 'active';
+
+    function switchLibraryTab(tabName) {
+        currentTab = tabName;
+        const activeBtn = document.getElementById('tabActiveBtn');
+        const deletedBtn = document.getElementById('tabDeletedBtn');
+        const activeView = document.getElementById('activeExamsView');
+        const deletedView = document.getElementById('deletedExamsView');
+
+        if (tabName === 'active') {
+            activeBtn.classList.add('active');
+            deletedBtn.classList.remove('active');
+            activeView.classList.remove('d-none');
+            deletedView.classList.add('d-none');
+        } else {
+            deletedBtn.classList.add('active');
+            activeBtn.classList.remove('active');
+            deletedView.classList.remove('d-none');
+            activeView.classList.add('d-none');
+        }
+
+        // Apply any active search filter to the current tab
+        filterExams();
+    }
+
+    function filterExams() {
+        const searchInput = document.getElementById('examSearchInput');
+        const clearBtn = document.getElementById('examSearchClearBtn');
+        const query = (searchInput.value || '').trim().toLowerCase();
+
+        // Toggle clear button
+        if (query.length > 0) {
+            clearBtn.classList.remove('d-none');
+        } else {
+            clearBtn.classList.add('d-none');
+        }
+
+        const activeCards = document.querySelectorAll('#activeExamsList .exam-item-card');
+        const deletedCards = document.querySelectorAll('#deletedExamsList .exam-item-card');
+        const activeNoResults = document.getElementById('activeSearchNoResults');
+        const deletedNoResults = document.getElementById('deletedSearchNoResults');
+
+        let visibleActiveCount = 0;
+        activeCards.forEach(card => {
+            const title = card.getAttribute('data-title') || '';
+            if (!query || title.includes(query)) {
+                card.classList.remove('d-none');
+                visibleActiveCount++;
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+
+        const visibleActiveCounter = document.getElementById('visibleActiveCount');
+        if (visibleActiveCounter) visibleActiveCounter.textContent = visibleActiveCount;
+
+        if (activeNoResults) {
+            if (activeCards.length > 0 && visibleActiveCount === 0 && query) {
+                activeNoResults.classList.remove('d-none');
+            } else {
+                activeNoResults.classList.add('d-none');
+            }
+        }
+
+        let visibleDeletedCount = 0;
+        deletedCards.forEach(card => {
+            const title = card.getAttribute('data-title') || '';
+            if (!query || title.includes(query)) {
+                card.classList.remove('d-none');
+                visibleDeletedCount++;
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+
+        const visibleDeletedCounter = document.getElementById('visibleDeletedCount');
+        if (visibleDeletedCounter) visibleDeletedCounter.textContent = visibleDeletedCount;
+
+        if (deletedNoResults) {
+            if (deletedCards.length > 0 && visibleDeletedCount === 0 && query) {
+                deletedNoResults.classList.remove('d-none');
+            } else {
+                deletedNoResults.classList.add('d-none');
+            }
+        }
+    }
+
+    function clearExamSearch() {
+        const searchInput = document.getElementById('examSearchInput');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        filterExams();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('examSearchInput');
+        const searchBtn = document.getElementById('examSearchBtn');
+        const clearBtn = document.getElementById('examSearchClearBtn');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', filterExams);
+            searchInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    filterExams();
+                } else if (e.key === 'Escape') {
+                    clearExamSearch();
+                }
+            });
+        }
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', filterExams);
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', clearExamSearch);
+        }
+
+        // Check URL params for ?tab=deleted
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('tab') === 'deleted') {
+            switchLibraryTab('deleted');
+        }
+    });
+</script>
+
+{% endblock %}
+

@@ -1,5 +1,13 @@
 .env
-.pyc
+*.pyc
 __pycache__
+*/__pycache__/*
 *.db
+app/videos/*
+*.jpg
+*.pdf
+*.webm
+venv
+/venv/
+venv/
 
