@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block title %}Crear Cuenta | MyTraining{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-lg-6 col-md-8 col-sm-11">
+        <div class="card socrative-card border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-header border-0 bg-primary text-white text-center py-4" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                <div class="mb-2">
+                    <span class="d-inline-flex align-items-center justify-content-center bg-white text-primary rounded-circle shadow-sm" style="width: 50px; height: 50px; font-size: 1.4rem;">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </span>
+                </div>
+                <h4 class="fw-bold mb-1">Crear Nueva Cuenta</h4>
+                <p class="mb-0 text-white-50 small">Únete a la plataforma de aprendizaje y evaluación interactiva</p>
+            </div>
+
+            <div class="card-body p-4 p-md-5">
+                <form action="{{ url_for('auth.register') }}" method="POST" id="registerForm">
+                    <!-- Nombre y Apellido -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted">Nombre <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
+                                <input type="text" name="first_name" class="form-control border-start-0" placeholder="Ej. Juan" value="{{ form_data.get('first_name', '') }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted">Apellido <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
+                                <input type="text" name="last_name" class="form-control border-start-0" placeholder="Ej. Pérez" value="{{ form_data.get('last_name', '') }}" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Correo Electrónico -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small text-muted">Correo Electrónico <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope text-muted"></i></span>
+                            <input type="email" name="email" class="form-control border-start-0" placeholder="juan.perez@ejemplo.com" value="{{ form_data.get('email', '') }}" required>
+                        </div>
+                    </div>
+
+                    <!-- Teléfono e Institución -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted">Teléfono / Celular</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-telephone text-muted"></i></span>
+                                <input type="tel" name="phone" class="form-control border-start-0" placeholder="+57 300 123 4567" value="{{ form_data.get('phone', '') }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted">Institución / Organización</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-building text-muted"></i></span>
+                                <input type="text" name="institution" class="form-control border-start-0" placeholder="Colegio / Universidad / Empresa" value="{{ form_data.get('institution', '') }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tipo de Cuenta / Rol -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold small text-muted d-block">Tipo de Perfil <span class="text-danger">*</span></label>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="card h-100 border p-3 text-center cursor-pointer role-card {% if form_data.get('role', 'student') == 'student' %}border-primary bg-light-primary{% endif %}" style="cursor: pointer; border-radius: 12px; transition: all 0.2s;">
+                                    <input type="radio" name="role" value="student" class="form-check-input visually-hidden" {% if form_data.get('role', 'student') == 'student' %}checked{% endif %} onchange="updateRoleHighlight(this)">
+                                    <div class="role-icon mb-2">
+                                        <i class="bi bi-mortarboard fs-3 text-primary"></i>
+                                    </div>
+                                    <div class="fw-bold text-dark">Estudiante</div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">Aprender y presentar evaluaciones</small>
+                                </label>
+                            </div>
+                            <div class="col-6">
+                                <label class="card h-100 border p-3 text-center cursor-pointer role-card {% if form_data.get('role') == 'instructor' %}border-primary bg-light-primary{% endif %}" style="cursor: pointer; border-radius: 12px; transition: all 0.2s;">
+                                    <input type="radio" name="role" value="instructor" class="form-check-input visually-hidden" {% if form_data.get('role') == 'instructor' %}checked{% endif %} onchange="updateRoleHighlight(this)">
+                                    <div class="role-icon mb-2">
+                                        <i class="bi bi-person-workspace fs-3 text-primary"></i>
+                                    </div>
+                                    <div class="fw-bold text-dark">Profesor / Instructor</div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">Crear pruebas y gestionar salas</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contraseña y Confirmar -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted">Contraseña <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
+                                <input type="password" name="password" class="form-control border-start-0" placeholder="Mínimo 4 caracteres" required minlength="4">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted">Confirmar Contraseña <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-shield-check text-muted"></i></span>
+                                <input type="password" name="password_confirm" class="form-control border-start-0" placeholder="Repite la contraseña" required minlength="4">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botón de Envío -->
+                    <button type="submit" class="btn btn-brand w-100 py-3 fw-bold text-white shadow-sm" style="font-size: 1rem; border-radius: 12px;">
+                        <i class="bi bi-check-circle-fill me-2"></i> Completar Registro
+                    </button>
+                </form>
+            </div>
+
+            <div class="card-footer bg-light text-center py-3 border-0">
+                <p class="mb-1 text-muted small">
+                    ¿Ya tienes una cuenta? <a href="{{ url_for('auth.login') }}" class="fw-bold text-primary">Inicia sesión aquí</a>
+                </p>
+                <p class="mb-0 text-muted" style="font-size: 0.8rem;">
+                    ¿Vas a unirte a un examen con código? <a href="{{ url_for('auth.student_join_exam') }}" class="text-decoration-underline">Ingresar como invitado</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-light-primary {
+    background-color: #eff6ff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+.role-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+</style>
+
+<script>
+function updateRoleHighlight(radio) {
+    document.querySelectorAll('.role-card').forEach(card => {
+        card.classList.remove('border-primary', 'bg-light-primary');
+    });
+    if (radio.checked) {
+        radio.closest('.role-card').classList.add('border-primary', 'bg-light-primary');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,709 @@
+{% extends 'base.html' %}
+{% block title %}Reporte de Sesión {{ session.session_code }} - {{ session.exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 px-lg-4">
+
+    <!-- TOP BREADCRUMB & HEADER -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-2 border-bottom">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 small">
+                    <li class="breadcrumb-item"><a href="{{ url_for('exams.instructor_dashboard') }}" class="text-decoration-none text-muted">Panel</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('exams.history') }}" class="text-decoration-none text-muted">Historial</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Reporte de Sala</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <h2 class="fw-bold mb-0 text-dark">{{ session.exam.title }}</h2>
+                <span class="badge bg-primary fs-6 px-3 py-1 font-monospace shadow-sm">
+                    <i class="bi bi-hash"></i>{{ session.session_code }}
+                </span>
+                <span class="badge {% if session.status in ['finished', 'FINISHED', 'closed', 'CLOSED'] %}bg-secondary{% elif session.status in ['in_progress', 'RUNNING'] %}bg-success{% else %}bg-warning text-dark{% endif %} px-3 py-1">
+                    {{ session.status|upper }}
+                </span>
+            </div>
+            <p class="text-muted small mb-0 mt-1">
+                <i class="bi bi-calendar-event me-1"></i>Creado el {{ session.created_at.strftime('%d/%m/%Y a las %H:%M') }}
+                {% if session.exam.classes %}
+                    | <i class="bi bi-folder me-1"></i>Clase: <strong>{{ session.exam.classes[0].name }}</strong>
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap align-items-center no-print">
+            <a href="{{ url_for('exams.download_session_results_excel', session_id=session.id) }}" class="btn btn-success shadow-sm d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark-excel-fill"></i>
+                <span>Descargar Excel (.xlsx)</span>
+            </a>
+            <button class="btn btn-outline-secondary shadow-sm d-flex align-items-center gap-2" onclick="window.print()">
+                <i class="bi bi-printer-fill"></i>
+                <span>Imprimir / PDF</span>
+            </button>
+            <a href="{{ url_for('exams.history') }}" class="btn btn-outline-dark shadow-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver al Historial
+            </a>
+        </div>
+    </div>
+
+    <!-- SNAPSHOT INTEGRITY NOTICE -->
+    <div class="alert alert-info border-0 shadow-sm d-flex align-items-center gap-3 py-3 mb-4 rounded-3" style="background-color: #f0fdf4; border-left: 5px solid #22c55e !important;">
+        <div class="rounded-circle d-flex align-items-center justify-content-center bg-white shadow-sm text-success" style="width: 44px; height: 44px; min-width: 44px; font-size: 1.3rem;">
+            <i class="bi bi-shield-check"></i>
+        </div>
+        <div class="small">
+            <strong class="text-dark d-block">Copia Histórica Protegida (Snapshot Congelado):</strong>
+            <span class="text-muted">
+                Este reporte preserva la versión exacta de las preguntas, opciones y claves vigentes durante esta sesión. Si el examen o sus preguntas son modificadas posteriormente en el banco de preguntas, este reporte conservará fielmente la versión que los estudiantes respondieron.
+            </span>
+        </div>
+    </div>
+
+    <!-- OVERVIEW KPI CARDS -->
+    <div class="row g-3 mb-4">
+        <!-- Participants Card -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 rounded-3 p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Participantes</span>
+                        <h3 class="fw-bold mb-0 text-dark mt-1">{{ summary.total_attempts }}</h3>
+                    </div>
+                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 48px; height: 48px; font-size: 1.4rem;">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-2 small text-muted">
+                    <i class="bi bi-journal-text me-1"></i>{{ summary.total_questions }} preguntas en la prueba
+                </div>
+            </div>
+        </div>
+
+        <!-- Average Score Card -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 rounded-3 p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Promedio General</span>
+                        <h3 class="fw-bold mb-0 mt-1 {% if summary.avg_score >= summary.passing_grade %}text-success{% else %}text-danger{% endif %}">
+                            {{ summary.avg_score }}%
+                        </h3>
+                    </div>
+                    <div class="rounded-circle d-flex align-items-center justify-content-center {% if summary.avg_score >= summary.passing_grade %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %}" style="width: 48px; height: 48px; font-size: 1.4rem;">
+                        <i class="bi bi-speedometer2"></i>
+                    </div>
+                </div>
+                <div class="mt-2 small text-muted">
+                    Nota Mín: <strong>{{ summary.min_score }}%</strong> | Máx: <strong>{{ summary.max_score }}%</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Passing Rate Card -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 rounded-3 p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Tasa de Aprobación</span>
+                        <h3 class="fw-bold mb-0 mt-1 {% if summary.passing_rate >= 70 %}text-success{% elif summary.passing_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ summary.passing_rate }}%
+                        </h3>
+                    </div>
+                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-info-subtle text-info" style="width: 48px; height: 48px; font-size: 1.4rem;">
+                        <i class="bi bi-award-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-2 small text-muted">
+                    <span class="text-success fw-bold">{{ summary.passed_count }} aprobados</span> / <span class="text-danger fw-bold">{{ summary.failed_count }} reprobados</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exam Points Card -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 rounded-3 p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Puntaje Total</span>
+                        <h3 class="fw-bold mb-0 text-dark mt-1">{{ summary.total_points }} pts</h3>
+                    </div>
+                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-warning-subtle text-warning" style="width: 48px; height: 48px; font-size: 1.4rem;">
+                        <i class="bi bi-check2-all"></i>
+                    </div>
+                </div>
+                <div class="mt-2 small text-muted">
+                    Criterio de aprobación: &ge; <strong>{{ summary.passing_grade }}%</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN REPORT NAVIGATION TABS -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white">
+        <div class="card-header bg-white border-bottom-0 pt-3 px-4">
+            <ul class="nav nav-tabs card-header-tabs" id="reportTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-semibold d-flex align-items-center gap-2" id="matrix-tab" data-bs-toggle="tab" data-bs-target="#tab-matrix" type="button" role="tab" aria-selected="true">
+                        <i class="bi bi-grid-3x3-gap-fill text-primary"></i>
+                        <span>Matriz de Resultados</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-semibold d-flex align-items-center gap-2" id="questions-tab" data-bs-toggle="tab" data-bs-target="#tab-questions" type="button" role="tab" aria-selected="false">
+                        <i class="bi bi-question-circle-fill text-info"></i>
+                        <span>Desglose por Pregunta (Snapshots)</span>
+                        <span class="badge bg-secondary-subtle text-secondary rounded-pill">{{ snapshots|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-semibold d-flex align-items-center gap-2" id="students-tab" data-bs-toggle="tab" data-bs-target="#tab-students" type="button" role="tab" aria-selected="false">
+                        <i class="bi bi-person-lines-fill text-success"></i>
+                        <span>Desglose por Estudiante</span>
+                        <span class="badge bg-secondary-subtle text-secondary rounded-pill">{{ matrix_rows|length }}</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card-body p-4">
+            <div class="tab-content" id="reportTabsContent">
+
+                <!-- ========================================== -->
+                <!-- TAB 1: RESULT MATRIX (STUDENTS X QUESTIONS) -->
+                <!-- ========================================== -->
+                <div class="tab-pane fade show active" id="tab-matrix" role="tabpanel" aria-labelledby="matrix-tab">
+                    
+                    <!-- Search and Filters bar -->
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 no-print">
+                        <div class="input-group" style="max-width: 320px;">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="matrixSearchInput" class="form-control border-start-0 ps-0" placeholder="Buscar estudiante...">
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary active" onclick="filterMatrix('all', this)">Todos ({{ summary.total_attempts }})</button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="filterMatrix('passed', this)">Aprobados ({{ summary.passed_count }})</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="filterMatrix('failed', this)">Reprobados ({{ summary.failed_count }})</button>
+                        </div>
+                    </div>
+
+                    <!-- Matrix Table -->
+                    <div class="table-responsive rounded-3 border">
+                        <table class="table table-hover align-middle mb-0 text-center" id="matrixTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="text-start px-3" style="min-width: 220px;">Estudiante</th>
+                                    <th style="min-width: 100px;">Puntaje</th>
+                                    <th style="min-width: 100px;">Puntos</th>
+                                    <th style="min-width: 110px;">Estado</th>
+                                    {% for snap in snapshots %}
+                                    <th class="text-center" style="min-width: 75px;" title="{{ snap.statement }} ({{ snap.points }} pts)">
+                                        <div class="small fw-bold">P{{ snap.order_index }}</div>
+                                        <div class="text-white-50" style="font-size: 0.7rem;">{{ snap.points }} pts</div>
+                                    </th>
+                                    {% endfor %}
+                                    <th class="no-print" style="min-width: 90px;">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in matrix_rows %}
+                                <tr class="matrix-row" data-status="{% if row.is_passed %}passed{% else %}failed{% endif %}" data-name="{{ row.student_name|lower }} {{ row.username|lower }}">
+                                    <!-- Student Info -->
+                                    <td class="text-start px-3">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary fw-bold border" style="width: 34px; height: 34px; min-width: 34px; font-size: 0.85rem;">
+                                                {{ row.student_name[:1]|upper }}
+                                            </div>
+                                            <div class="text-truncate">
+                                                <strong class="text-dark d-block text-truncate" title="{{ row.student_name }}">{{ row.student_name }}</strong>
+                                                <small class="text-muted" style="font-size: 0.75rem;">@{{ row.username }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <!-- Score % -->
+                                    <td>
+                                        <span class="fw-bold {% if row.is_passed %}text-success{% else %}text-danger{% endif %} fs-6">
+                                            {{ row.score }}%
+                                        </span>
+                                    </td>
+
+                                    <!-- Earned Points -->
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            {{ row.earned_points }} / {{ row.max_points }}
+                                        </span>
+                                    </td>
+
+                                    <!-- Status -->
+                                    <td>
+                                        {% if row.is_passed %}
+                                            <span class="badge bg-success-subtle text-success px-2 py-1 rounded-pill">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Aprobado
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger px-2 py-1 rounded-pill">
+                                                <i class="bi bi-x-circle-fill me-1"></i>Reprobado
+                                            </span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Question Cells -->
+                                    {% for ans_cell in row.question_answers %}
+                                    <td>
+                                        {% if ans_cell.has_answer %}
+                                            {% if ans_cell.is_correct %}
+                                                <button type="button" class="btn btn-sm btn-success py-1 px-2 rounded-2 shadow-none" 
+                                                        data-bs-toggle="modal" data-bs-target="#detailModal" 
+                                                        onclick="showAnswerModal('{{ row.student_name }}', '{{ snapshots[loop.index0].statement|replace("'", "\\'") }}', '{{ ans_cell.student_answer|replace("'", "\\'") }}', '{{ ans_cell.correct_answer|replace("'", "\\'") }}', true, '{{ ans_cell.points_awarded }}', '{{ ans_cell.feedback|replace("'", "\\'") }}')"
+                                                        title="Correcta (+{{ ans_cell.points_awarded }} pts) - Click para ver">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                            {% else %}
+                                                <button type="button" class="btn btn-sm btn-danger py-1 px-2 rounded-2 shadow-none"
+                                                        data-bs-toggle="modal" data-bs-target="#detailModal" 
+                                                        onclick="showAnswerModal('{{ row.student_name }}', '{{ snapshots[loop.index0].statement|replace("'", "\\'") }}', '{{ ans_cell.student_answer|replace("'", "\\'") }}', '{{ ans_cell.correct_answer|replace("'", "\\'") }}', false, '{{ ans_cell.points_awarded }}', '{{ ans_cell.feedback|replace("'", "\\'") }}')"
+                                                        title="Incorrecta (0 pts) - Click para ver">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-light text-muted border">-</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+
+                                    <!-- Single Action -->
+                                    <td class="no-print">
+                                        <a href="{{ url_for('exams.download_attempt_results_excel', attempt_id=row.attempt.id) }}" 
+                                           class="btn btn-sm btn-outline-success py-1 px-2" title="Descargar Excel de este alumno">
+                                            <i class="bi bi-file-earmark-excel"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="{{ snapshots|length + 5 }}" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
+                                        No hay entregas registradas en esta sala de examen.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            
+                            <!-- Matrix Footer with Question Accuracy summary -->
+                            {% if matrix_rows %}
+                            <tfoot class="table-light border-top-2 fw-bold">
+                                <tr>
+                                    <td colspan="4" class="text-start px-3 text-muted">
+                                        <i class="bi bi-bar-chart-fill me-1"></i> Precisión de la Clase por Pregunta:
+                                    </td>
+                                    {% for q_stat in question_analytics %}
+                                    <td class="text-center">
+                                        <span class="badge {{ q_stat.diff_badge }} px-2 py-1" style="font-size: 0.75rem;" title="{{ q_stat.correct_count }} de {{ summary.total_attempts }} correctas">
+                                            {{ q_stat.accuracy }}%
+                                        </span>
+                                    </td>
+                                    {% endfor %}
+                                    <td class="no-print"></td>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- TAB 2: QUESTIONS BREAKDOWN (SNAPSHOTS)     -->
+                <!-- ========================================== -->
+                <div class="tab-pane fade" id="tab-questions" role="tabpanel" aria-labelledby="questions-tab">
+                    
+                    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <p class="text-muted small mb-0">
+                            A continuación se muestra el contenido íntegro y original de cada pregunta guardada para esta sesión, junto a la distribución de respuestas de los estudiantes.
+                        </p>
+                    </div>
+
+                    <div class="d-flex flex-column gap-4">
+                        {% for q in question_analytics %}
+                        <div class="card border shadow-sm rounded-3 overflow-hidden">
+                            <!-- Question Card Header -->
+                            <div class="card-header bg-light py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-dark fs-6 px-3 py-1">Pregunta {{ q.order }}</span>
+                                    <span class="badge bg-primary-subtle text-primary px-2 py-1">{{ q.type_label }}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1">{{ q.category }}</span>
+                                    <span class="badge bg-warning-subtle text-dark px-2 py-1">{{ q.points }} pts</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="small fw-semibold text-muted">Acierto:</span>
+                                    <span class="badge {{ q.diff_badge }} fs-6 px-3 py-1">
+                                        {{ q.accuracy }}% ({{ q.correct_count }}/{{ summary.total_attempts }})
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Question Card Body -->
+                            <div class="card-body p-4">
+                                <!-- Question Statement -->
+                                <h5 class="fw-bold text-dark mb-3">{{ q.statement }}</h5>
+
+                                <!-- Optional Media (Image / Video) -->
+                                {% if q.image_url %}
+                                <div class="mb-3">
+                                    <img src="{{ q.image_url }}" alt="Imagen de pregunta" class="img-fluid rounded border shadow-sm" style="max-height: 250px;">
+                                </div>
+                                {% endif %}
+
+                                {% if q.video_url %}
+                                <div class="mb-3">
+                                    <div class="ratio ratio-16x9 rounded overflow-hidden shadow-sm" style="max-width: 500px;">
+                                        <iframe src="{{ q.video_url }}" allowfullscreen></iframe>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Options & Choices Breakdown -->
+                                {% if q.options_data %}
+                                <div class="mb-3">
+                                    <h6 class="fw-bold text-muted small text-uppercase mb-2">Opciones y Respuestas de Estudiantes:</h6>
+                                    <div class="list-group">
+                                        {% for opt in q.options_data %}
+                                        {% set opt_text = opt.option_text or opt.text %}
+                                        {% set count = q.options_counts.get(opt_text, 0) %}
+                                        {% set pct = (count / summary.total_attempts * 100)|round(1) if summary.total_attempts > 0 else 0 %}
+                                        <div class="list-group-item d-flex justify-content-between align-items-center {% if opt.is_correct %}list-group-item-success border-success{% endif %} py-2 px-3">
+                                            <div class="d-flex align-items-center gap-2">
+                                                {% if opt.is_correct %}
+                                                    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                                {% else %}
+                                                    <i class="bi bi-circle text-muted fs-5"></i>
+                                                {% endif %}
+                                                <span class="fw-semibold text-dark">{{ opt_text }}</span>
+                                                {% if opt.is_correct %}
+                                                    <span class="badge bg-success text-white ms-2" style="font-size: 0.7rem;">Respuesta Correcta</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2" style="min-width: 140px;">
+                                                <div class="progress flex-grow-1" style="height: 8px;">
+                                                    <div class="progress-bar {% if opt.is_correct %}bg-success{% else %}bg-secondary{% endif %}" role="progressbar" style="width: {{ pct }}%;"></div>
+                                                </div>
+                                                <span class="small fw-bold text-muted" style="min-width: 45px; text-align: right;">{{ count }} ({{ pct }}%)</span>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% elif q.matching_data %}
+                                <div class="mb-3 p-3 bg-light rounded border">
+                                    <h6 class="fw-bold text-muted small text-uppercase mb-2">Pares Correctos (Emparejamiento):</h6>
+                                    <ul class="list-unstyled mb-0">
+                                        {% for pair in q.matching_data %}
+                                        <li class="mb-1 small">
+                                            <strong class="text-dark">{{ pair.left_text }}</strong> 
+                                            <i class="bi bi-arrow-right text-primary mx-1"></i> 
+                                            <span class="badge bg-success">{{ pair.right_text }}</span>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% elif q.ordering_data %}
+                                <div class="mb-3 p-3 bg-light rounded border">
+                                    <h6 class="fw-bold text-muted small text-uppercase mb-2">Orden Correcto:</h6>
+                                    <ol class="mb-0 small ps-3">
+                                        {% for item in q.ordering_data|sort(attribute='correct_position') %}
+                                        <li class="mb-1"><strong>{{ item.item_text }}</strong></li>
+                                        {% endfor %}
+                                    </ol>
+                                </div>
+                                {% endif %}
+
+                                <!-- Feedback text if any -->
+                                {% if q.feedback_text %}
+                                <div class="alert alert-warning py-2 px-3 mb-3 border-0 rounded-2 bg-warning-subtle text-dark small">
+                                    <i class="bi bi-lightbulb-fill text-warning me-1"></i>
+                                    <strong>Retroalimentación / Explicación:</strong> {{ q.feedback_text }}
+                                </div>
+                                {% endif %}
+
+                                <!-- Expandable: All Student Answers for this Question -->
+                                <div class="mt-3">
+                                    <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#answersCollapse{{ q.order }}" aria-expanded="false">
+                                        <i class="bi bi-list-check"></i>
+                                        <span>Ver qué respondió cada estudiante ({{ q.answers_list|length }})</span>
+                                        <i class="bi bi-chevron-down ms-1"></i>
+                                    </button>
+                                    
+                                    <div class="collapse mt-3" id="answersCollapse{{ q.order }}">
+                                        <div class="table-responsive rounded border">
+                                            <table class="table table-sm table-striped mb-0 small align-middle">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th class="ps-3">Estudiante</th>
+                                                        <th>Respuesta Emitida</th>
+                                                        <th class="text-center">Resultado</th>
+                                                        <th class="text-center">Puntos</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for st_ans in q.answers_list %}
+                                                    <tr>
+                                                        <td class="ps-3 fw-semibold text-dark">{{ st_ans.student_name }} <small class="text-muted">(@{{ st_ans.username }})</small></td>
+                                                        <td>{{ st_ans.answer_text }}</td>
+                                                        <td class="text-center">
+                                                            {% if st_ans.is_correct %}
+                                                                <span class="badge bg-success">Correcta</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger">Incorrecta</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="text-center fw-bold">{{ st_ans.points_awarded }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- TAB 3: INDIVIDUAL STUDENT BREAKDOWN        -->
+                <!-- ========================================== -->
+                <div class="tab-pane fade" id="tab-students" role="tabpanel" aria-labelledby="students-tab">
+                    
+                    <!-- Search Students Filter -->
+                    <div class="mb-4 no-print" style="max-width: 350px;">
+                        <input type="text" id="studentCardsSearchInput" class="form-control" placeholder="Filtrar estudiante por nombre...">
+                    </div>
+
+                    <div class="d-flex flex-column gap-4" id="studentCardsContainer">
+                        {% for row in matrix_rows %}
+                        <div class="card border shadow-sm rounded-3 student-detail-card" data-student-name="{{ row.student_name|lower }} {{ row.username|lower }}">
+                            <!-- Card Header -->
+                            <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-primary-subtle text-primary fw-bold border" style="width: 44px; height: 44px; font-size: 1.1rem;">
+                                        {{ row.student_name[:1]|upper }}
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold text-dark mb-0">{{ row.student_name }}</h5>
+                                        <small class="text-muted">
+                                            @{{ row.username }} {% if row.email %} • {{ row.email }}{% endif %} • 
+                                            Entregado: {{ row.completed_at.strftime('%d/%m/%Y %H:%M') if row.completed_at else 'N/A' }}
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <div class="text-end me-2">
+                                        <div class="fs-4 fw-bold {% if row.is_passed %}text-success{% else %}text-danger{% endif %} lh-1">
+                                            {{ row.score }}%
+                                        </div>
+                                        <small class="text-muted fw-semibold">{{ row.earned_points }} / {{ row.max_points }} pts</small>
+                                    </div>
+                                    {% if row.is_passed %}
+                                        <span class="badge bg-success fs-6 px-3 py-2 rounded-pill">Aprobado</span>
+                                    {% else %}
+                                        <span class="badge bg-danger fs-6 px-3 py-2 rounded-pill">Reprobado</span>
+                                    {% endif %}
+                                    <a href="{{ url_for('exams.download_attempt_results_excel', attempt_id=row.attempt.id) }}" class="btn btn-outline-success btn-sm ms-2 no-print" title="Descargar reporte Excel individual">
+                                        <i class="bi bi-file-earmark-excel-fill me-1"></i> Excel
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Card Body: Question by Question -->
+                            <div class="card-body p-4 bg-light">
+                                <div class="d-flex flex-column gap-3">
+                                    {% for ans_item in row.question_answers %}
+                                    {% set snap = snapshots[loop.index0] %}
+                                    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 {% if ans_item.is_correct %}border-success{% else %}border-danger{% endif %}">
+                                        <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
+                                            <h6 class="fw-bold text-dark mb-0">
+                                                Pregunta {{ snap.order_index }}: {{ snap.statement }}
+                                            </h6>
+                                            <div>
+                                                {% if ans_item.is_correct %}
+                                                    <span class="badge bg-success-subtle text-success fw-bold px-2 py-1">
+                                                        <i class="bi bi-check-circle-fill me-1"></i> Correcta (+{{ ans_item.points_awarded }} pts)
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger-subtle text-danger fw-bold px-2 py-1">
+                                                        <i class="bi bi-x-circle-fill me-1"></i> Incorrecta (0 pts)
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-2 mt-1 small">
+                                            <div class="col-md-6">
+                                                <div class="p-2 rounded {% if ans_item.is_correct %}bg-success-subtle text-success-emphasis border border-success-subtle{% else %}bg-danger-subtle text-danger-emphasis border border-danger-subtle{% endif %}">
+                                                    <strong class="d-block text-muted" style="font-size: 0.72rem; text-transform: uppercase;">Respuesta del estudiante:</strong>
+                                                    <span>{{ ans_item.student_answer }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="p-2 rounded bg-light border">
+                                                    <strong class="d-block text-muted" style="font-size: 0.72rem; text-transform: uppercase;">Respuesta correcta:</strong>
+                                                    <span class="text-success fw-semibold">{{ ans_item.correct_answer }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {% if ans_item.feedback %}
+                                        <div class="mt-2 text-muted small bg-light p-2 rounded">
+                                            <i class="bi bi-info-circle text-primary me-1"></i>
+                                            <strong>Retroalimentación:</strong> {{ ans_item.feedback }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted text-center py-4">No hay participantes en esta sesión.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- QUICK DETAIL POPUP MODAL (FROM MATRIX CLICK) -->
+<div class="modal fade no-print" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-3 shadow">
+            <div class="modal-header border-0 pb-0" id="detailModalHeader">
+                <h5 class="modal-title fw-bold" id="detailModalLabel">Detalle de Respuesta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Estudiante</small>
+                    <h6 class="fw-bold text-dark mb-0" id="modalStudentName"></h6>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Pregunta Original</small>
+                    <p class="text-dark fw-semibold mb-0" id="modalQuestionText"></p>
+                </div>
+                <div class="p-3 rounded mb-3" id="modalStudentAnswerBox">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Respuesta del Estudiante</small>
+                    <span class="fw-bold" id="modalStudentAnswer"></span>
+                </div>
+                <div class="p-3 rounded bg-light border mb-3">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Respuesta Correcta</small>
+                    <span class="text-success fw-bold" id="modalCorrectAnswer"></span>
+                </div>
+                <div id="modalFeedbackBox" class="alert alert-info py-2 px-3 small d-none">
+                    <strong>Retroalimentación:</strong> <span id="modalFeedbackText"></span>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, .app-navbar, .dashboard-header, nav, .btn, .breadcrumb {
+        display: none !important;
+    }
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-size: 12pt;
+    }
+    .card {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+    }
+    .tab-content > .tab-pane {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+}
+</style>
+
+<script>
+// Filter Matrix Table rows by Status
+function filterMatrix(status, btn) {
+    const buttons = btn.parentElement.querySelectorAll('button');
+    buttons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const rows = document.querySelectorAll('.matrix-row');
+    rows.forEach(row => {
+        const rowStatus = row.getAttribute('data-status');
+        if (status === 'all' || rowStatus === status) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Search Matrix Table by Student Name
+document.getElementById('matrixSearchInput')?.addEventListener('input', function(e) {
+    const query = e.target.value.toLowerCase().trim();
+    const rows = document.querySelectorAll('.matrix-row');
+    rows.forEach(row => {
+        const name = row.getAttribute('data-name');
+        if (!query || name.includes(query)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Search Student Detail Cards by Name
+document.getElementById('studentCardsSearchInput')?.addEventListener('input', function(e) {
+    const query = e.target.value.toLowerCase().trim();
+    const cards = document.querySelectorAll('.student-detail-card');
+    cards.forEach(card => {
+        const name = card.getAttribute('data-student-name');
+        if (!query || name.includes(query)) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+});
+
+// Show Answer Detail Modal from Matrix Click
+function showAnswerModal(student, question, studentAns, correctAns, isCorrect, points, feedback) {
+    document.getElementById('modalStudentName').textContent = student;
+    document.getElementById('modalQuestionText').textContent = question;
+    document.getElementById('modalStudentAnswer').textContent = studentAns;
+    document.getElementById('modalCorrectAnswer').textContent = correctAns;
+    
+    const ansBox = document.getElementById('modalStudentAnswerBox');
+    if (isCorrect) {
+        ansBox.className = 'p-3 rounded mb-3 bg-success-subtle text-success-emphasis border border-success-subtle';
+    } else {
+        ansBox.className = 'p-3 rounded mb-3 bg-danger-subtle text-danger-emphasis border border-danger-subtle';
+    }
+
+    const fbBox = document.getElementById('modalFeedbackBox');
+    if (feedback && feedback.trim() !== '') {
+        document.getElementById('modalFeedbackText').textContent = feedback;
+        fbBox.classList.remove('d-none');
+    } else {
+        fbBox.classList.add('d-none');
+    }
+}
+</script>
+{% endblock %}

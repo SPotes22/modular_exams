@@ -148,6 +148,59 @@ def test_class_folder_management(app_ctx):
 
     c.post(f'/instructor/class/{cls_id}/delete')
     with app.app_context():
-        assert ExamClass.query.get(cls_id) is None
+        assert db.session.get(ExamClass, cls_id) is None
+
+
+def test_exam_soft_delete_restore_and_library_tabs(app_ctx):
+    app, teacher, *_ = app_ctx
+    with app.app_context():
+        exam1 = Exam(title='Examen Activo 1', instructor_id=teacher.id)
+        exam2 = Exam(title='Examen Para Borrar', instructor_id=teacher.id)
+        db.session.add_all([exam1, exam2])
+        db.session.commit()
+        exam1_id, exam2_id = exam1.id, exam2.id
+
+    c = app.test_client()
+    login(c, 'teacher@example.com')
+
+    # View library: both should be active initially
+    res = c.get('/instructor/exams')
+    assert res.status_code == 200
+    assert b'Examen Activo 1' in res.data
+    assert b'Examen Para Borrar' in res.data
+
+    # Soft delete exam2
+    del_res = c.post(f'/instructor/exam/{exam2_id}/delete', follow_redirects=True)
+    assert del_res.status_code == 200
+
+    # Check in DB: exam2 still exists, but active is False
+    with app.app_context():
+        e2 = db.session.get(Exam, exam2_id)
+        assert e2 is not None
+        assert e2.active is False
+
+        e1 = db.session.get(Exam, exam1_id)
+        assert e1 is not None
+        assert e1.active is True
+
+    # Check library page renders both in their respective containers
+    res = c.get('/instructor/exams')
+    assert res.status_code == 200
+    assert b'Examen Activo 1' in res.data
+    assert b'Examen Para Borrar' in res.data
+
+    # Restore exam2
+    res_restore = c.post(f'/instructor/exam/{exam2_id}/restore', follow_redirects=True)
+    assert res_restore.status_code == 200
+    with app.app_context():
+        e2 = db.session.get(Exam, exam2_id)
+        assert e2.active is True
+
+    # Permanent delete exam2
+    res_perm = c.post(f'/instructor/exam/{exam2_id}/permanent-delete', follow_redirects=True)
+    assert res_perm.status_code == 200
+    with app.app_context():
+        assert db.session.get(Exam, exam2_id) is None
+        assert db.session.get(Exam, exam1_id) is not None
 
 
