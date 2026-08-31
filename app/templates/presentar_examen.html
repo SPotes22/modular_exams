@@ -3,76 +3,82 @@
 
 {% block content %}
 
-{# ── OVERLAY DE ESPERA ──────────────────────────────────────────────────── #}
+{# ══ OVERLAY: ESPERA ═══════════════════════════════════════════════════════ #}
 <div id="waiting-screen"
      class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-90
             d-flex flex-column justify-content-center align-items-center text-white"
      style="z-index:9999;{% if session.status == 'in_progress' %}display:none!important;{% endif %}">
   <div class="spinner-border text-primary mb-3" style="width:4rem;height:4rem;" role="status"></div>
   <h2 class="fw-bold">Esperando al profesor…</h2>
-  <p class="text-light">Estás en la sala <strong class="text-warning">{{ session.session_code if session else session_code }}</strong>. El examen comenzará en breve.</p>
+  <p class="text-light">Sala: <strong class="text-warning">{{ session.session_code }}</strong></p>
 </div>
 
-{# ── OVERLAY ENCUESTA (poll) ────────────────────────────────────────────── #}
+{# ══ OVERLAY: PAUSADO ══════════════════════════════════════════════════════ #}
+<div id="pause-screen"
+     class="position-fixed top-0 start-0 w-100 h-100 d-none
+            flex-column justify-content-center align-items-center text-white"
+     style="z-index:9998;background:rgba(30,27,75,.95);">
+  <i class="bi bi-pause-circle-fill mb-3" style="font-size:5rem;color:#a78bfa;"></i>
+  <h2 class="fw-bold">Examen pausado</h2>
+  <p class="text-light opacity-75">El profesor reanudará en breve. Tu progreso está guardado.</p>
+</div>
+
+{# ══ OVERLAY: ENCUESTA (POLL) ══════════════════════════════════════════════ #}
 <div id="poll-overlay"
      class="position-fixed top-0 start-0 w-100 h-100 d-none
-            d-flex flex-column justify-content-center align-items-center"
+            flex-column justify-content-center align-items-center"
      style="z-index:9000;background:rgba(15,23,42,.93);">
   <div class="card border-0 shadow-lg p-4" style="width:min(96vw,520px);border-radius:20px;">
-
-    <div class="d-flex align-items-center gap-2 mb-1">
-      <span class="badge bg-warning text-dark fw-bold px-3 py-2" style="font-size:.8rem;">ENCUESTA EN VIVO</span>
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="badge bg-warning text-dark fw-bold px-3 py-2">ENCUESTA EN VIVO</span>
       <span id="pollVoteCountBadge" class="badge bg-secondary">0 votos</span>
     </div>
-
     <h4 class="fw-bold mt-2 mb-4" id="pollQuestionText">Cargando…</h4>
 
-    {# — Estado: votado — #}
+    {# ya votó #}
     <div id="pollVotedState" class="d-none text-center py-4">
       <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
       <p class="fw-semibold mt-3">¡Voto registrado! Esperando al resto del grupo…</p>
       <div id="pollLiveResults" class="mt-3 text-start"></div>
     </div>
 
-    {# — Estado: formulario de voto — #}
+    {# formulario #}
     <div id="pollVoteForm">
-      {# true_false y multiple_choice: botones de opción #}
       <div id="pollOptionsContainer" class="d-flex flex-column gap-2 mb-3"></div>
-
-      {# open_answer y poll libre: textarea #}
       <div id="pollOpenContainer" class="d-none mb-3">
         <textarea id="pollOpenAnswer" class="form-control" rows="4"
-                  placeholder="Escribe tu respuesta aquí…" maxlength="500"></textarea>
+                  placeholder="Escribe tu respuesta…" maxlength="500"></textarea>
         <small class="text-muted">Máx. 500 caracteres</small>
       </div>
-
       <button id="pollSubmitBtn" class="btn btn-primary w-100 rounded-pill fw-bold py-2"
               onclick="submitPollVote()">
         <i class="bi bi-send-fill me-2"></i>Enviar respuesta
       </button>
     </div>
-
   </div>
 </div>
 
-{# ── CONTENEDOR EXAMEN ──────────────────────────────────────────────────── #}
+{# ══ CONTENEDOR DEL EXAMEN ════════════════════════════════════════════════ #}
 <div class="container my-4" id="examContainer">
   <div class="card shadow-sm mb-4">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-      <h4 class="mb-0">{{ exam.title if exam else 'Sala en vivo' }}</h4>
-      <div>
-        <span>Estudiante: <strong>{{ current_user.username }}</strong></span> |
-        <span>Sala: <strong>{{ session.session_code if session else session_code }}</strong></span>
+      <h4 class="mb-0">{{ exam.title }}</h4>
+      <div class="d-flex align-items-center gap-3">
+        <span>{{ current_user.username }}</span>
+        <span class="badge bg-light text-dark font-monospace">{{ session.session_code }}</span>
       </div>
     </div>
 
-    {# Barra de progreso — solo si hay preguntas de examen #}
+    {# Barra de progreso #}
     {% if questions_data %}
     <div class="card-body bg-light border-bottom py-2">
       <div class="d-flex justify-content-between align-items-center">
         <small class="fw-bold" id="question-indicator">Pregunta 1 de {{ questions_data|length }}</small>
-        <div class="progress w-50" style="height:10px;">
-          <div id="exam-progress-bar" class="progress-bar bg-success" role="progressbar" style="width:0%;"></div>
+        <div class="d-flex align-items-center gap-2">
+          <span id="answeredBadge" class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:.75rem;">0 guardadas</span>
+          <div class="progress" style="width:200px;height:10px;">
+            <div id="exam-progress-bar" class="progress-bar bg-success" style="width:0%;"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -84,40 +90,65 @@
 
         {% for item in questions_data %}
         {% set q = item.question %}
-        {% set q_index = loop.index0 %}
-
-        <div class="question-step" id="step-{{ q_index }}"
+        {% set qi = loop.index0 %}
+        <div class="question-step" id="step-{{ qi }}"
              data-question-id="{{ q.id }}"
-             style="{% if q_index != 0 %}display:none;{% endif %}">
+             data-question-type="{{ item.type }}"
+             style="{% if qi != 0 %}display:none;{% endif %}">
 
           <div class="mb-4">
             <span class="badge bg-secondary mb-2">Pregunta {{ loop.index }}</span>
-            <h4 class="fw-normal">{{ q.statement }}</h4>
+            <span id="savedMark-{{ q.id }}" class="badge bg-success ms-1 d-none">✓ Guardada</span>
+            <h4 class="fw-normal mt-1">{{ q.statement }}</h4>
             {% if q.image_url %}
               <img src="{{ q.image_url }}" class="img-fluid rounded mb-3" style="max-height:250px;">
             {% endif %}
+            {% if q.video_url %}
+              {# Convertir URL de YouTube a URL embebible #}
+              {% set yt_url = q.video_url %}
+              {% if 'youtu.be/' in yt_url %}
+                {% set yt_id = yt_url.split('youtu.be/')[-1].split('?')[0] %}
+                {% set embed_url = 'https://www.youtube.com/embed/' + yt_id %}
+              {% elif 'youtube.com/watch' in yt_url %}
+                {% set yt_id = yt_url.split('v=')[-1].split('&')[0] %}
+                {% set embed_url = 'https://www.youtube.com/embed/' + yt_id %}
+              {% elif 'youtube.com/embed/' in yt_url %}
+                {% set embed_url = yt_url %}
+              {% else %}
+                {% set embed_url = yt_url %}
+              {% endif %}
+              <div class="ratio ratio-16x9 mb-3 rounded overflow-hidden shadow-sm" style="max-width: 560px;">
+                <iframe src="{{ embed_url }}{% if q.video_timestamp %}?start={{ q.video_timestamp }}{% endif %}"
+                        allowfullscreen
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        loading="lazy"></iframe>
+              </div>
+            {% endif %}
           </div>
 
-          {# Opción múltiple / V-F / Video #}
+          {# ── Opción múltiple / V-F / Video ── #}
           {% if item.type in ['multiple_choice', 'true_false', 'video'] %}
             {% for opt in item.options %}
-            <div class="form-check card mb-2 p-3 border">
+            <div class="form-check card mb-2 p-3 border option-card" data-opt-id="{{ opt.id }}">
               <input class="form-check-input ms-1" type="radio"
-                     name="question_{{ q.id }}" value="{{ opt.id }}" id="opt_{{ opt.id }}">
+                     name="question_{{ q.id }}" value="{{ opt.id }}" id="opt_{{ opt.id }}"
+                     data-question-id="{{ q.id }}">
               <label class="form-check-label ms-2 w-100" for="opt_{{ opt.id }}">
                 {{ opt.option_text }}
               </label>
             </div>
             {% endfor %}
 
-          {# Emparejamiento #}
+          {# ── Emparejamiento ── #}
           {% elif item.type == 'matching' %}
+            <p class="text-muted small mb-3">Selecciona la coincidencia para cada término.</p>
             {% for pair in item.pairs %}
             <div class="row align-items-center mb-3">
-              <div class="col-md-5"><strong>{{ pair.left_text }}</strong></div>
+              <div class="col-md-5 fw-semibold">{{ pair.left_text }}</div>
               <div class="col-md-7">
-                <select name="question_{{ q.id }}_pair_{{ pair.id }}" class="form-select">
-                  <option value="">-- Selecciona coincidencia --</option>
+                <select name="question_{{ q.id }}_pair_{{ pair.id }}" class="form-select"
+                        data-question-id="{{ q.id }}" data-pair-id="{{ pair.id }}">
+                  <option value="">-- Selecciona --</option>
                   {% for right in item.right_options %}
                   <option value="{{ right }}">{{ right }}</option>
                   {% endfor %}
@@ -125,42 +156,78 @@
               </div>
             </div>
             {% endfor %}
+            {# Campo oculto para saber si la pregunta fue "tocada" #}
+            <input type="hidden" name="question_{{ q.id }}_type" value="matching">
 
-          {# Ordenamiento #}
+          {# ── Ordenamiento ── #}
           {% elif item.type == 'ordering' %}
-            <p class="text-muted small mb-3">Asigna el orden correcto (1, 2, 3…):</p>
+            <p class="text-muted small mb-3">
+              Asigna el número de orden a cada elemento (1 = primero).
+            </p>
             {% for ord_item in item.order_list %}
             <div class="row align-items-center mb-2">
-              <div class="col-md-9">{{ ord_item.item_text }}</div>
-              <div class="col-md-3">
-                <input type="number" name="order_{{ q.id }}_{{ ord_item.id }}"
-                       class="form-control" min="1" max="{{ item.order_list|length }}">
+              <div class="col-md-8">{{ ord_item.item_text }}</div>
+              <div class="col-md-4">
+                <input type="number"
+                       name="order_{{ q.id }}_{{ ord_item.id }}"
+                       class="form-control ordering-input"
+                       data-question-id="{{ q.id }}"
+                       min="1" max="{{ item.order_list|length }}"
+                       placeholder="#">
               </div>
             </div>
             {% endfor %}
+            <input type="hidden" name="question_{{ q.id }}_type" value="ordering">
+        
+          {# ── Respuesta abierta ── #}
+            {% elif item.type == 'multiple_select' %}
+  <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i>Puedes seleccionar más de una opción.</p>
+  {% for opt in item.options %}
+  <div class="form-check card mb-2 p-3 border option-card">
+    <input class="form-check-input ms-1" type="checkbox"
+           name="question_{{ q.id }}" value="{{ opt.id }}" id="opt_{{ opt.id }}"
+           data-question-id="{{ q.id }}">
+    <label class="form-check-label ms-2 w-100" for="opt_{{ opt.id }}">{{ opt.option_text }}</label>
+  </div>
+  {% endfor %}
 
-          {# Respuesta abierta (examen normal) #}
+            
+          {# ── Respuesta abierta ── #}
           {% elif item.type == 'open_answer' %}
-            <textarea name="question_{{ q.id }}" class="form-control" rows="5"
+            <textarea name="question_{{ q.id }}"
+                      class="form-control open-answer-input"
+                      data-question-id="{{ q.id }}"
+                      rows="6"
                       placeholder="Escribe tu respuesta aquí…"></textarea>
+            <small class="text-muted d-block mt-1">
+              Tu respuesta se guarda automáticamente cuando haces clic en "Siguiente" o "Enviar".
+            </small>
 
-          {% endif %}
+          
+            
+            
+            {% endif %}
         </div>
         {% endfor %}
 
-        <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+        {# ── Navegación ── #}
+        <div class="d-flex justify-content-between mt-4 pt-3 border-top" id="navButtons">
           <button type="button" class="btn btn-outline-secondary" id="btn-prev"
-                  onclick="prevQuestion()" disabled>Anterior</button>
+                  onclick="prevQuestion()" disabled>
+            <i class="bi bi-chevron-left me-1"></i>Anterior
+          </button>
           <button type="button" class="btn btn-primary" id="btn-next"
-                  onclick="nextQuestion()">Siguiente</button>
-          <button type="submit" class="btn btn-success btn-lg d-none" id="btn-submit">
-            Enviar Examen
+                  onclick="nextQuestion()">
+            Siguiente<i class="bi bi-chevron-right ms-1"></i>
+          </button>
+          <button type="submit" class="btn btn-success btn-lg d-none" id="btn-submit"
+                  onclick="submitRealtimeAnswer()">
+            <i class="bi bi-send-fill me-1"></i>Enviar Examen
           </button>
         </div>
-      </form>
 
+      </form>
       {% else %}
-      {# Sin preguntas de examen: sala en espera de encuestas #}
       <div class="text-center py-5 text-muted">
         <i class="bi bi-wifi fs-1 d-block mb-3 text-primary"></i>
         <h5 class="fw-semibold">Conectado a la sala</h5>
@@ -175,251 +242,362 @@
 
 {% block scripts %}
 <script>
-/* ═══════════════════════════════════════════════════════════════
-   EXAMEN + POLL — presentar_examen.html
-═══════════════════════════════════════════════════════════════ */
-const socket = io();
+/* ═══════════════════════════════════════════════════════════════════════════
+   presentar_examen.js  —  examen + poll + pausa + progreso
+═══════════════════════════════════════════════════════════════════════════ */
+const socket     = io();
+const SESSION_ID = {{ session.id }};
+const ROOM_CODE  = "{{ session.session_code | upper }}";
+const STUDENT_ID = {{ current_user.id }};
+const USERNAME   = "{{ current_user.username }}";
+const TOTAL_Q    = {{ questions_data|length if questions_data else 0 }};
+const EXAM_MODE  = "{{ exam.exam_mode or 'instant_feedback' }}";
 
-// Datos de sesión inyectados desde Jinja (sin CSRF, solo flask-session)
-const SESSION_ID   = {{ session.id if session else session_id }};
-const ROOM_CODE    = "{{ (session.session_code if session else session_code) | upper }}";
-const STUDENT_ID   = {{ current_user.id }};
-const STUDENT_NAME = "{{ current_user.username }}";
-const TOTAL_Q      = {{ questions_data|length if questions_data else 0 }};
-const EXAM_MODE    = "{{ (exam.exam_mode if exam else exam_mode) or 'instant_feedback' }}";
-
-let currentStep = 0;
+let currentStep  = 0;
+let isPaused     = false;
 let activePollId = null;
 let pollVoted    = false;
+// Mapa { question_id: answer_json } — se hidrata desde saved_progress
+let savedAnswers = {};
+// Cuántas preguntas se guardaron en servidor
+let savedCount   = 0;
 
-/* ── Socket: conectar ───────────────────────────────────────── */
-socket.on('connect', () => {
-  socket.emit('student_join', {
-    room_code: ROOM_CODE, student_id: STUDENT_ID, username: STUDENT_NAME
-  });
-  // Unirse también a la sala de polls
-  socket.emit('poll_join_room', { room_code: ROOM_CODE });
-});
-
-/* ── Examen: eventos de sala ────────────────────────────────── */
+/* ── helpers overlay ─────────────────────────────────────────────────────── */
 function hideWaiting() {
   const el = document.getElementById('waiting-screen');
   if (el) el.style.setProperty('display','none','important');
 }
+function showPause() {
+  isPaused = true;
+  const el = document.getElementById('pause-screen');
+  el.classList.remove('d-none');
+  el.style.display = 'flex';
+  // Deshabilitar inputs para evitar edición durante pausa
+  document.querySelectorAll('#exam-form input, #exam-form select, #exam-form textarea, #exam-form button')
+    .forEach(el => el.disabled = true);
+}
+function hidePause() {
+  isPaused = false;
+  const el = document.getElementById('pause-screen');
+  el.classList.add('d-none');
+  el.style.display = '';
+  // Rehabilitar inputs
+  document.querySelectorAll('#exam-form input, #exam-form select, #exam-form textarea, #exam-form button')
+    .forEach(el => el.disabled = false);
+  updateStepView();
+}
 
-socket.on('exam_started',   ()     => hideWaiting());
-socket.on('session_state',  data   => {
+/* ── Socket ──────────────────────────────────────────────────────────────── */
+socket.on('connect', () => {
+  socket.emit('student_join', { room_code: ROOM_CODE, student_id: STUDENT_ID, username: USERNAME });
+  socket.emit('poll_join_room', { room_code: ROOM_CODE });
+});
+
+socket.on('exam_started',   ()   => hideWaiting());
+socket.on('exam_paused',    ()   => showPause());
+socket.on('exam_resumed',   ()   => hidePause());
+
+socket.on('session_state', data => {
   if (data.status === 'in_progress') hideWaiting();
+  if (data.status === 'PAUSED') showPause();
   if ((data.mode === 'teacher_paced' || data.mode === 'instant_feedback') && data.question)
     showQuestionById(data.question.id);
   if (data.can_submit) document.getElementById('btn-submit')?.classList.remove('d-none');
 });
-socket.on('feedback',       data   => {
-  if (data.correct !== undefined) alert(`${data.correct ? '✔ Correcta' : '✘ Incorrecta'}: ${data.feedback || ''}`);
+
+/* instant_feedback: único modo que muestra feedback con resultado */
+socket.on('feedback', data => {
+  if (EXAM_MODE !== 'instant_feedback') return;
+  const icon = data.correct ? '✔' : '✘';
+  const msg  = `${icon} ${data.correct ? 'Correcta' : 'Incorrecta'}${data.feedback ? ': ' + data.feedback : ''}`;
+  showToast(msg, data.correct ? 'success' : 'danger');
   if (data.next_question) showQuestionById(data.next_question.id);
   if (data.finished) document.getElementById('btn-submit')?.classList.remove('d-none');
 });
-socket.on('next_question',  data   => { if (data.question) showQuestionById(data.question.id); });
-socket.on('exam_error',     data   => alert(data.message));
 
-/* ── Poll: recibir encuesta lanzada por el instructor ───────── */
-socket.on('poll_launched', data => {
-  activePollId = data.id;
-  pollVoted    = false;
-  showPollOverlay(data);
+/* Confirmación silenciosa — cualquier otro modo */
+socket.on('answer_saved', data => {
+  markSaved(data.question_id);
+  savedCount = data.answered_count;
+  updateAnsweredBadge();
+  if (data.can_submit) document.getElementById('btn-submit')?.classList.remove('d-none');
 });
 
+socket.on('next_question', data => {
+  if (data.question) showQuestionById(data.question.id);
+});
+
+socket.on('exam_error', data => showToast(data.message, 'danger'));
+
+/* Restaurar progreso guardado (LiveAnswer) */
+socket.on('saved_progress', data => {
+  savedAnswers = data.answers || {};
+  Object.keys(savedAnswers).forEach(qid => {
+    restoreAnswer(parseInt(qid), savedAnswers[qid]);
+    markSaved(parseInt(qid));
+  });
+  savedCount = Object.keys(savedAnswers).length;
+  updateAnsweredBadge();
+});
+
+/* ── Poll ─────────────────────────────────────────────────────────────────── */
+socket.on('poll_launched', data => { activePollId = data.id; pollVoted = false; showPollOverlay(data); });
 socket.on('poll_results_updated', data => {
   if (data.id !== activePollId) return;
-  // Actualiza contador de votos
-  const badge = document.getElementById('pollVoteCountBadge');
-  if (badge) badge.textContent = `${data.vote_count} voto(s)`;
-  // Si ya votó, actualiza resultados en vivo
-  if (pollVoted) renderLiveResults(data);
+  const b = document.getElementById('pollVoteCountBadge');
+  if (b) b.textContent = `${data.vote_count} voto(s)`;
+  if (pollVoted) renderPollResults(data);
 });
-
 socket.on('poll_closed', data => {
-  if (data.id !== activePollId) return;
-  setTimeout(hidePollOverlay, 2500);
+  if (data.id === activePollId) setTimeout(hidePollOverlay, 2500);
 });
 
-/* ── Poll: mostrar overlay ──────────────────────────────────── */
+/* ── Poll helpers ─────────────────────────────────────────────────────────── */
 function showPollOverlay(poll) {
   document.getElementById('pollQuestionText').textContent = poll.question_text;
-  document.getElementById('pollVoteCountBadge').textContent = `${poll.vote_count || 0} voto(s)`;
-
+  document.getElementById('pollVoteCountBadge').textContent = `${poll.vote_count||0} voto(s)`;
   const optsCont = document.getElementById('pollOptionsContainer');
   const openCont = document.getElementById('pollOpenContainer');
-  const voteForm = document.getElementById('pollVoteForm');
-  const votedSt  = document.getElementById('pollVotedState');
-
   optsCont.innerHTML = '';
   document.getElementById('pollOpenAnswer').value = '';
-  voteForm.classList.remove('d-none');
-  votedSt.classList.add('d-none');
-
-  const type = poll.poll_type;
-
-  if (type === 'true_false' || type === 'multiple_choice') {
+  document.getElementById('pollVoteForm').classList.remove('d-none');
+  document.getElementById('pollVotedState').classList.add('d-none');
+  const labels = ['A','B','C','D','E','F'];
+  if (poll.poll_type === 'true_false' || poll.poll_type === 'multiple_choice') {
     openCont.classList.add('d-none');
-    optsCont.classList.remove('d-none');
-
-    const opts = poll.options || (type === 'true_false' ? ['Verdadero','Falso'] : []);
-    const labels = ['A','B','C','D','E','F'];
-    opts.forEach((opt, i) => {
+    const opts = poll.options || (poll.poll_type==='true_false'?['Verdadero','Falso']:[]);
+    opts.forEach((opt,i) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn-outline-primary text-start rounded-3 py-2 px-3 fw-semibold';
-      btn.innerHTML = `<span class="badge bg-primary me-2">${labels[i] || i+1}</span>${opt}`;
-      btn.onclick = () => submitPollVoteOption(opt);
+      btn.innerHTML = `<span class="badge bg-primary me-2">${labels[i]||i+1}</span>${opt}`;
+      btn.onclick = () => _sendVote(opt);
       optsCont.appendChild(btn);
     });
-
   } else {
-    // open_answer o poll libre
     optsCont.classList.add('d-none');
     openCont.classList.remove('d-none');
   }
-
-  document.getElementById('poll-overlay').classList.remove('d-none');
-  document.getElementById('poll-overlay').style.display = 'flex';
+  const el = document.getElementById('poll-overlay');
+  el.classList.remove('d-none');
+  el.style.display = 'flex';
 }
-
 function hidePollOverlay() {
   const el = document.getElementById('poll-overlay');
-  el.classList.add('d-none');
-  el.style.display = '';
+  el.classList.add('d-none'); el.style.display = '';
   activePollId = null;
 }
-
-/* ── Poll: enviar voto ──────────────────────────────────────── */
-async function submitPollVoteOption(answer) {
-  await _sendVote(answer);
-}
-
 async function submitPollVote() {
-  // Para tipo open o poll libre
   const openCont = document.getElementById('pollOpenContainer');
-  const isOpen = !openCont.classList.contains('d-none');
-  const answer = isOpen
-    ? document.getElementById('pollOpenAnswer').value.trim()
-    : null;
-
-  if (isOpen && !answer) {
-    document.getElementById('pollOpenAnswer').classList.add('is-invalid');
-    return;
-  }
+  const isOpen   = !openCont.classList.contains('d-none');
+  const answer   = isOpen ? document.getElementById('pollOpenAnswer').value.trim() : null;
+  if (isOpen && !answer) { document.getElementById('pollOpenAnswer').classList.add('is-invalid'); return; }
   document.getElementById('pollOpenAnswer').classList.remove('is-invalid');
   await _sendVote(answer);
 }
-
 async function _sendVote(answer) {
   if (!activePollId || pollVoted) return;
   try {
-    const res = await fetch(`/polls/${activePollId}/vote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res  = await fetch(`/polls/${activePollId}/vote`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ answer }),
     });
     const data = await res.json();
-
-    if (data.already_voted || res.ok) {
+    if (res.ok || data.already_voted) {
       pollVoted = true;
       document.getElementById('pollVoteForm').classList.add('d-none');
-      const votedSt = document.getElementById('pollVotedState');
-      votedSt.classList.remove('d-none');
-      document.getElementById('pollVoteCountBadge').textContent = `${data.vote_count || 0} voto(s)`;
-    } else {
-      alert(data.error || 'Error al votar');
-    }
-  } catch(e) {
-    alert('Error de red: ' + e.message);
-  }
+      document.getElementById('pollVotedState').classList.remove('d-none');
+      document.getElementById('pollVoteCountBadge').textContent = `${data.vote_count||0} voto(s)`;
+    } else { showToast(data.error || 'Error al votar', 'danger'); }
+  } catch(e) { showToast('Error de red: '+e.message, 'danger'); }
 }
-
-/* ── Poll: resultados en vivo (panel del votado) ─────────────── */
-function renderLiveResults(poll) {
+function renderPollResults(poll) {
   const cont = document.getElementById('pollLiveResults');
   if (!cont) return;
   const r = poll.results || {};
   let html = '<h6 class="fw-semibold mb-2">Resultados parciales</h6>';
-
   if (Array.isArray(r)) {
     html += '<ul class="list-unstyled">';
     r.slice(-10).forEach(t => { html += `<li class="border-bottom py-1 small">💬 ${t}</li>`; });
     html += '</ul>';
   } else {
-    const total = Object.values(r).reduce((a,b) => a+b, 0) || 1;
-    Object.entries(r).forEach(([opt, cnt]) => {
-      const pct = Math.round(cnt / total * 100);
+    const total = Object.values(r).reduce((a,b)=>a+b,0)||1;
+    Object.entries(r).forEach(([opt,cnt]) => {
+      const pct = Math.round(cnt/total*100);
       html += `<div class="mb-2">
         <div class="d-flex justify-content-between small"><span>${opt}</span><span>${cnt} (${pct}%)</span></div>
-        <div class="progress" style="height:8px;">
-          <div class="progress-bar bg-primary" style="width:${pct}%"></div>
-        </div></div>`;
+        <div class="progress" style="height:8px;"><div class="progress-bar bg-primary" style="width:${pct}%"></div></div>
+      </div>`;
     });
   }
   cont.innerHTML = html;
 }
 
-/* ── Examen: navegación ──────────────────────────────────────── */
-function showQuestionById(questionId) {
-  const steps = [...document.querySelectorAll('.question-step')];
-  const idx = steps.findIndex(el => Number(el.dataset.questionId) === Number(questionId));
-  if (idx >= 0) { currentStep = idx; updateStepView(); }
+/* ── Toast no-bloqueante (reemplaza alert) ────────────────────────────────── */
+function showToast(msg, type='info') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'position-fixed bottom-0 end-0 p-3';
+    container.style.zIndex = '11000';
+    document.body.appendChild(container);
+  }
+  const id   = 'toast-' + Date.now();
+  const html = `
+    <div id="${id}" class="toast align-items-center text-bg-${type} border-0 show mb-2" role="alert" aria-live="assertive">
+      <div class="d-flex">
+        <div class="toast-body">${msg}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button>
+      </div>
+    </div>`;
+  container.insertAdjacentHTML('beforeend', html);
+  setTimeout(() => document.getElementById(id)?.remove(), 4000);
 }
 
-function collectAnswer(questionId) {
-  const checked = document.querySelector(`input[name="question_${questionId}"]:checked`);
-  return { selected_option_id: checked ? Number(checked.value) : null };
+/* ── Marca visual de pregunta guardada ───────────────────────────────────── */
+function markSaved(questionId) {
+  const el = document.getElementById(`savedMark-${questionId}`);
+  if (el) el.classList.remove('d-none');
+}
+function updateAnsweredBadge() {
+  const el = document.getElementById('answeredBadge');
+  if (el) el.textContent = `${savedCount} guardada${savedCount!==1?'s':''}`;
 }
 
-function submitRealtimeAnswer() {
-  const step = document.querySelectorAll('.question-step')[currentStep];
+/* ── Recolectar respuesta del step actual ────────────────────────────────── */
+function collectAnswer(step) {
+  const questionId = parseInt(step.dataset.questionId);
+  const type       = step.dataset.questionType;
+  const answer     = { question_id: questionId };
+
+  if (type === 'multiple_choice' || type === 'true_false' || type === 'video') {
+    const checked = step.querySelector(`input[name="question_${questionId}"]:checked`);
+    answer.selected_option_id = checked ? parseInt(checked.value) : null;
+
+  } else if (type === 'matching') {
+    const pairs = {};
+    step.querySelectorAll('select[data-pair-id]').forEach(sel => {
+      pairs[sel.dataset.pairId] = sel.value;
+    });
+    answer.pair_map = pairs;
+
+  } else if (type === 'ordering') {
+    const order = {};
+    step.querySelectorAll('input.ordering-input').forEach(inp => {
+      const parts = inp.name.split('_'); // order_QID_ITEMID
+      order[parts[parts.length-1]] = inp.value ? parseInt(inp.value) : null;
+    });
+    answer.order_map = order;
+
+  } else if (type === 'open_answer') {
+    const ta = step.querySelector('textarea');
+    answer.text = ta ? ta.value.trim() : '';
+  }
+    else if (type === 'multiple_select') {
+    const checked = [...step.querySelectorAll(`input[name="question_${questionId}"]:checked`)];
+    answer.selected_option_ids = checked.map(c => parseInt(c.value));
+
+  return answer;
+}
+
+/* ── Restaurar respuesta guardada en los inputs ──────────────────────────── */
+function restoreAnswer(questionId, answer) {
+  if (!answer) return;
+  const step = document.querySelector(`.question-step[data-question-id="${questionId}"]`);
   if (!step) return;
-  const questionId = Number(step.dataset.questionId);
+  const type = step.dataset.questionType;
+
+  if ((type === 'multiple_choice' || type === 'true_false' || type === 'video') && answer.selected_option_id) {
+    const radio = step.querySelector(`input[value="${answer.selected_option_id}"]`);
+    if (radio) radio.checked = true;
+
+  } else if (type === 'matching' && answer.pair_map) {
+    Object.entries(answer.pair_map).forEach(([pairId, val]) => {
+      const sel = step.querySelector(`select[data-pair-id="${pairId}"]`);
+      if (sel) sel.value = val;
+    });
+
+  } else if (type === 'ordering' && answer.order_map) {
+    step.querySelectorAll('input.ordering-input').forEach(inp => {
+      const itemId = inp.name.split('_').pop();
+      if (answer.order_map[itemId] != null) inp.value = answer.order_map[itemId];
+    });
+
+  } else if (type === 'open_answer' && answer.text) {
+    const ta = step.querySelector('textarea');
+    if (ta) ta.value = answer.text;
+  }
+}
+
+/* ── Enviar respuesta del step actual al servidor ────────────────────────── */
+function submitRealtimeAnswer() {
+  if (isPaused) return;
+  const steps = document.querySelectorAll('.question-step');
+  const step  = steps[currentStep];
+  if (!step) return;
+  const answer = collectAnswer(step);
+  // Solo emitir si hay algo que enviar
+  const hasContent = answer.selected_option_id != null
+    || (answer.pair_map  && Object.values(answer.pair_map).some(Boolean))
+    || (answer.order_map && Object.values(answer.order_map).some(v=>v!=null))
+    || (answer.text);
+  if (!hasContent) return;
+
   socket.emit('answer_submitted', {
-    room_code: ROOM_CODE, student_id: STUDENT_ID,
-    question_id: questionId, answer: collectAnswer(questionId)
+    room_code: ROOM_CODE,
+    student_id: STUDENT_ID,
+    question_id: answer.question_id,
+    answer,
   });
 }
 
-document.addEventListener('change', e => {
-  if (e.target.matches('input[type=radio], select, input[type=number]')) submitRealtimeAnswer();
-});
+/* ── Navegación ──────────────────────────────────────────────────────────── */
+function showQuestionById(questionId) {
+  const steps = [...document.querySelectorAll('.question-step')];
+  const idx   = steps.findIndex(el => parseInt(el.dataset.questionId) === questionId);
+  if (idx >= 0) { currentStep = idx; updateStepView(); }
+}
+
+function nextQuestion() {
+  submitRealtimeAnswer();   // guarda antes de avanzar
+  if (currentStep < TOTAL_Q - 1) { currentStep++; updateStepView(); }
+}
+function prevQuestion() {
+  submitRealtimeAnswer();
+  if (currentStep > 0) { currentStep--; updateStepView(); }
+}
 
 function updateStepView() {
   if (TOTAL_Q === 0) return;
   document.querySelectorAll('.question-step').forEach((el, i) => {
     el.style.display = (i === currentStep) ? 'block' : 'none';
   });
-  const btnPrev   = document.getElementById('btn-prev');
-  const btnNext   = document.getElementById('btn-next');
-  const btnSubmit = document.getElementById('btn-submit');
-  const isLast    = currentStep === TOTAL_Q - 1;
-  const isPaced   = EXAM_MODE === 'teacher_paced' || EXAM_MODE === 'instant_feedback';
-
-  if (btnPrev)   btnPrev.disabled = (currentStep === 0 || isPaced);
-  if (btnNext)   btnNext.classList.toggle('d-none', isLast || isPaced);
-  if (btnSubmit) btnSubmit.classList.toggle('d-none', !isLast);
-
+  // Solo teacher_paced bloquea la navegación manual; instant_feedback y open_navigation
+  // permiten que el estudiante avance con el botón Siguiente.
+  const isPaced  = EXAM_MODE === 'teacher_paced';
+  const isLast   = currentStep === TOTAL_Q - 1;
+  const btnPrev  = document.getElementById('btn-prev');
+  const btnNext  = document.getElementById('btn-next');
+  const btnSub   = document.getElementById('btn-submit');
+  if (btnPrev) btnPrev.disabled = (currentStep === 0 || isPaced);
+  if (btnNext) btnNext.classList.toggle('d-none', isLast || isPaced);
+  if (btnSub)  btnSub.classList.toggle('d-none',  !isLast || isPaced);
   const ind = document.getElementById('question-indicator');
-  if (ind) ind.textContent = `Pregunta ${currentStep + 1} de ${TOTAL_Q}`;
-
+  if (ind) ind.textContent = `Pregunta ${currentStep+1} de ${TOTAL_Q}`;
   const bar = document.getElementById('exam-progress-bar');
   if (bar) bar.style.width = `${Math.round((currentStep+1)/TOTAL_Q*100)}%`;
 }
 
-function nextQuestion() { if (currentStep < TOTAL_Q - 1) { currentStep++; updateStepView(); } }
-function prevQuestion() { if (currentStep > 0) { currentStep--; updateStepView(); } }
-
-/* ── Polling de estado (fallback al socket) ─────────────────── */
-{% if session and session.status != 'in_progress' %}
+/* ── Polling de estado (fallback) ────────────────────────────────────────── */
+{% if session.status != 'in_progress' %}
 function checkStatus() {
   fetch(`/session/status/${SESSION_ID}`)
     .then(r => r.json())
-    .then(d => { if (d.status === 'in_progress') { hideWaiting(); clearInterval(_si); } })
-    .catch(() => {});
+    .then(d => {
+      if (d.status === 'in_progress') { hideWaiting(); clearInterval(_si); }
+      if (d.status === 'PAUSED') showPause();
+    }).catch(()=>{});
 }
 const _si = setInterval(checkStatus, 1500);
 checkStatus();

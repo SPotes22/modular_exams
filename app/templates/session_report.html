@@ -251,7 +251,15 @@
                                     {% for ans_cell in row.question_answers %}
                                     <td>
                                         {% if ans_cell.has_answer %}
-                                            {% if ans_cell.is_correct %}
+                                            {% if ans_cell.is_correct is none %}
+                                                {# Pregunta abierta — pendiente revisión #}
+                                                <button type="button" class="btn btn-sm btn-info py-1 px-2 rounded-2 shadow-none"
+                                                        data-bs-toggle="modal" data-bs-target="#detailModal"
+                                                        onclick="showAnswerModal('{{ row.student_name }}', '{{ snapshots[loop.index0].statement|replace("'", "\\'") }}', '{{ ans_cell.student_answer|replace("'", "\\'") }}', 'Revisión manual', false, '{{ ans_cell.points_awarded }}', '{{ ans_cell.feedback|replace("'", "\\'") }}')"
+                                                        title="Respuesta abierta — pendiente de revisión">
+                                                    <i class="bi bi-hourglass-split"></i>
+                                                </button>
+                                            {% elif ans_cell.is_correct %}
                                                 <button type="button" class="btn btn-sm btn-success py-1 px-2 rounded-2 shadow-none" 
                                                         data-bs-toggle="modal" data-bs-target="#detailModal" 
                                                         onclick="showAnswerModal('{{ row.student_name }}', '{{ snapshots[loop.index0].statement|replace("'", "\\'") }}', '{{ ans_cell.student_answer|replace("'", "\\'") }}', '{{ ans_cell.correct_answer|replace("'", "\\'") }}', true, '{{ ans_cell.points_awarded }}', '{{ ans_cell.feedback|replace("'", "\\'") }}')"
@@ -356,8 +364,23 @@
 
                                 {% if q.video_url %}
                                 <div class="mb-3">
+                                    {% set yt_url = q.video_url %}
+                                    {% if 'youtu.be/' in yt_url %}
+                                      {% set yt_id = yt_url.split('youtu.be/')[-1].split('?')[0] %}
+                                      {% set embed_url = 'https://www.youtube.com/embed/' + yt_id %}
+                                    {% elif 'youtube.com/watch' in yt_url %}
+                                      {% set yt_id = yt_url.split('v=')[-1].split('&')[0] %}
+                                      {% set embed_url = 'https://www.youtube.com/embed/' + yt_id %}
+                                    {% elif 'youtube.com/embed/' in yt_url %}
+                                      {% set embed_url = yt_url %}
+                                    {% else %}
+                                      {% set embed_url = yt_url %}
+                                    {% endif %}
                                     <div class="ratio ratio-16x9 rounded overflow-hidden shadow-sm" style="max-width: 500px;">
-                                        <iframe src="{{ q.video_url }}" allowfullscreen></iframe>
+                                        <iframe src="{{ embed_url }}{% if q.video_timestamp %}?start={{ q.video_timestamp }}{% endif %}"
+                                                allowfullscreen
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                loading="lazy"></iframe>
                                     </div>
                                 </div>
                                 {% endif %}
@@ -450,7 +473,9 @@
                                                         <td class="ps-3 fw-semibold text-dark">{{ st_ans.student_name }} <small class="text-muted">(@{{ st_ans.username }})</small></td>
                                                         <td>{{ st_ans.answer_text }}</td>
                                                         <td class="text-center">
-                                                            {% if st_ans.is_correct %}
+                                                            {% if st_ans.is_correct is none %}
+                                                                <span class="badge bg-info text-dark">⏳ Revisión manual</span>
+                                                            {% elif st_ans.is_correct %}
                                                                 <span class="badge bg-success">Correcta</span>
                                                             {% else %}
                                                                 <span class="badge bg-danger">Incorrecta</span>
@@ -522,13 +547,18 @@
                                 <div class="d-flex flex-column gap-3">
                                     {% for ans_item in row.question_answers %}
                                     {% set snap = snapshots[loop.index0] %}
-                                    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 {% if ans_item.is_correct %}border-success{% else %}border-danger{% endif %}">
+                                    {% set is_open_q = ans_item.is_correct is none %}
+                                    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 {% if is_open_q %}border-info{% elif ans_item.is_correct %}border-success{% else %}border-danger{% endif %}">
                                         <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
                                             <h6 class="fw-bold text-dark mb-0">
                                                 Pregunta {{ snap.order_index }}: {{ snap.statement }}
                                             </h6>
                                             <div>
-                                                {% if ans_item.is_correct %}
+                                                {% if is_open_q %}
+                                                    <span class="badge bg-info-subtle text-info fw-bold px-2 py-1">
+                                                        <i class="bi bi-hourglass-split me-1"></i> Pendiente revisión
+                                                    </span>
+                                                {% elif ans_item.is_correct %}
                                                     <span class="badge bg-success-subtle text-success fw-bold px-2 py-1">
                                                         <i class="bi bi-check-circle-fill me-1"></i> Correcta (+{{ ans_item.points_awarded }} pts)
                                                     </span>
@@ -542,17 +572,26 @@
 
                                         <div class="row g-2 mt-1 small">
                                             <div class="col-md-6">
-                                                <div class="p-2 rounded {% if ans_item.is_correct %}bg-success-subtle text-success-emphasis border border-success-subtle{% else %}bg-danger-subtle text-danger-emphasis border border-danger-subtle{% endif %}">
+                                                <div class="p-2 rounded {% if is_open_q %}bg-info-subtle text-info-emphasis border border-info-subtle{% elif ans_item.is_correct %}bg-success-subtle text-success-emphasis border border-success-subtle{% else %}bg-danger-subtle text-danger-emphasis border border-danger-subtle{% endif %}">
                                                     <strong class="d-block text-muted" style="font-size: 0.72rem; text-transform: uppercase;">Respuesta del estudiante:</strong>
                                                     <span>{{ ans_item.student_answer }}</span>
                                                 </div>
                                             </div>
-                                            <div class="col-md-6">
-                                                <div class="p-2 rounded bg-light border">
-                                                    <strong class="d-block text-muted" style="font-size: 0.72rem; text-transform: uppercase;">Respuesta correcta:</strong>
-                                                    <span class="text-success fw-semibold">{{ ans_item.correct_answer }}</span>
-                                                </div>
-                                            </div>
+                                            {% if not is_open_q %}
+                                             <div class="col-md-6">
+                                                 <div class="p-2 rounded bg-light border">
+                                                     <strong class="d-block text-muted" style="font-size: 0.72rem; text-transform: uppercase;">Respuesta correcta:</strong>
+                                                     <span class="text-success fw-semibold">{{ ans_item.correct_answer }}</span>
+                                                 </div>
+                                             </div>
+                                             {% else %}
+                                             <div class="col-md-6">
+                                                 <div class="p-2 rounded bg-light border border-info-subtle">
+                                                     <strong class="d-block text-muted" style="font-size: 0.72rem; text-transform: uppercase;">Tipo:</strong>
+                                                     <span class="text-info">Respuesta abierta — revisión manual del profesor</span>
+                                                 </div>
+                                             </div>
+                                             {% endif %}
                                         </div>
 
                                         {% if ans_item.feedback %}

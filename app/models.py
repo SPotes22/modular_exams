@@ -361,6 +361,8 @@ class BlockAnswer(db.Model):
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User')
+
+
 # ==========================================
 # POLL / ENCUESTA EN VIVO
 # ==========================================
@@ -399,6 +401,31 @@ class Poll(db.Model):
         return counts
 
 
+# ==========================================
+# RESPUESTAS EN VIVO (progreso sin snapshot)
+# ==========================================
+
+class LiveAnswer(db.Model):
+    """
+    Guarda la última respuesta enviada por cada estudiante para cada pregunta
+    durante una sesión en vivo. No depende de que el snapshot esté completo.
+    Se usa para restaurar progreso si el examen se pausa o el estudiante
+    recarga la página. ON CONFLICT = reemplazar (upsert por student+session+question).
+    """
+    __tablename__ = 'live_answers'
+    id = db.Column(db.Integer, primary_key=True)
+    session_id  = db.Column(db.Integer, db.ForeignKey('exam_sessions.id'), nullable=False)
+    student_id  = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    question_id = db.Column(db.Integer, nullable=False)  # ID lógico (no FK estricta)
+    # Serialización JSON de la respuesta: {selected_option_id, order_map, pair_map, text, ...}
+    answer_json = db.Column(db.JSON, nullable=True)
+    answered_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('session_id', 'student_id', 'question_id', name='uq_live_answer'),
+    )
+
+
 class PollVote(db.Model):
     __tablename__ = 'poll_votes'
     id = db.Column(db.Integer, primary_key=True)
@@ -412,3 +439,4 @@ class PollVote(db.Model):
     __table_args__ = (
         db.UniqueConstraint('poll_id', 'student_id', name='uq_poll_student'),
     )
+

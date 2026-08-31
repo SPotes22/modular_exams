@@ -26,34 +26,55 @@
         <!-- Desglose de Respuestas y Retroalimentación -->
         <h4 class="mb-3">Desglose de Preguntas</h4>
         {% for ans in answers %}
-            <div class="card mb-3 border-start border-4 {% if ans.is_correct %}border-success{% else %}border-danger{% endif %}">
+            {# Determinar si es pregunta abierta (is_correct es None) #}
+            {% set is_open = ans.is_correct is none %}
+            <div class="card mb-3 border-start border-4 {% if is_open %}border-info{% elif ans.is_correct %}border-success{% else %}border-danger{% endif %}">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h5 class="card-title mb-0">Pregunta {{ loop.index }}</h5>
-                        {% if ans.is_correct %}
-                            <span class="badge bg-success">Correcta (+1)</span>
+                        {% if is_open %}
+                            <span class="badge bg-info text-dark">⏳ Pendiente revisión</span>
+                        {% elif ans.is_correct %}
+                            <span class="badge bg-success">Correcta (+{{ ans.points_awarded }})</span>
                         {% else %}
                             <span class="badge bg-danger">Incorrecta (0)</span>
                         {% endif %}
                     </div>
                     
-                    <p class="fw-semibold mb-2">{{ ans.question.statement }}</p>
+                    <p class="fw-semibold mb-2">{{ ans.display_statement }}</p>
 
-                    <div class="p-2 rounded mb-2 bg-light">
+                    <div class="p-2 rounded mb-2 {% if is_open %}bg-info-subtle border border-info-subtle{% elif ans.is_correct %}bg-success-subtle border border-success-subtle{% else %}bg-danger-subtle border border-danger-subtle{% endif %}">
                         <small class="text-muted d-block">Tu respuesta:</small>
                         <span>
-                            {% if ans.selected_option %}
+                            {% if ans.answer_text %}
+                                {{ ans.answer_text }}
+                            {% elif ans.selected_option %}
                                 {{ ans.selected_option.option_text }}
+                            {% elif ans.selected_option_text %}
+                                {{ ans.selected_option_text }}
                             {% else %}
-                                <em>Respuesta enviada</em>
+                                <em class="text-muted">Sin respuesta</em>
                             {% endif %}
                         </span>
                     </div>
 
-                    {% if ans.question.feedback_text %}
-                        <div class="alert alert-info py-2 px-3 mb-0 mt-2">
+                    {% if not is_open and ans.display_correct_answer and ans.display_correct_answer != 'Ver rúbrica' %}
+                        <div class="p-2 rounded mb-2 bg-light border">
+                            <small class="text-muted d-block">Respuesta correcta:</small>
+                            <span class="text-success fw-semibold">{{ ans.display_correct_answer }}</span>
+                        </div>
+                    {% endif %}
+
+                    {% if is_open %}
+                        <div class="alert alert-info py-2 px-3 mb-0 mt-2 border-0">
+                            <small><i class="bi bi-info-circle me-1"></i>Esta es una pregunta de respuesta abierta. Tu profesor revisará tu respuesta y asignará el puntaje correspondiente.</small>
+                        </div>
+                    {% endif %}
+
+                    {% if ans.display_feedback %}
+                        <div class="alert alert-warning py-2 px-3 mb-0 mt-2">
                             <small class="fw-bold d-block">💡 Retroalimentación:</small>
-                            <small>{{ ans.question.feedback_text }}</small>
+                            <small>{{ ans.display_feedback }}</small>
                         </div>
                     {% endif %}
                 </div>

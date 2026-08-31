@@ -2,7 +2,7 @@
 from flask import Flask
 from sqlalchemy import inspect
 from app.config import Config
-from app.extensions import db, login_manager, socketio # csrf
+from app.extensions import db, login_manager, socketio
 
 def _add_column_if_missing(conn, table_columns, table_name, column_name, ddl):
     if column_name not in table_columns:
@@ -53,7 +53,9 @@ def ensure_schema():
         _add_column_if_missing(conn, user_columns, 'users', 'institution', "VARCHAR(150)")
 
 def init_db():
-    from app.models import ( User, Bank, Question, QuestionOption, Exam, ExamQuestion, ExamClass, ExamGroup, Learning, LearningModule, Lesson, Block, LearningProgress, BlockAnswer, SessionQuestionSnapshot, Poll, PollVote )
+    from app.models import (User, Bank, Question, QuestionOption, Exam, ExamQuestion,
+        ExamClass, ExamGroup, Learning, LearningModule, Lesson, Block, LearningProgress,
+        BlockAnswer, SessionQuestionSnapshot, Poll, PollVote, LiveAnswer)
     db.create_all()
     ensure_schema()
 
@@ -131,7 +133,6 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     socketio.init_app(app)
-    #csrf.init_app(app)
 
     with app.app_context():
         init_db()
@@ -144,8 +145,8 @@ def create_app():
     from app.blueprints.admin import admin_bp
     from app.blueprints.learning import learning_bp
     from app.blueprints.polls import polls_bp
-    from app.blueprints.polls import sockets as polls_sockets 
     from app.realtime import sockets  # noqa: F401
+    from app.blueprints.polls import sockets as poll_sockets  # noqa: F401
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)

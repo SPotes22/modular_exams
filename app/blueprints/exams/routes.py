@@ -179,7 +179,7 @@ def presentar_examen(session_id):
     for eq in eq_list:
         q = eq.question
         
-        if q.question_type in ['multiple_choice', 'true_false', 'video']:
+        if q.question_type in ['multiple_choice','multiple_select', 'true_false', 'video']:
             opts = list(q.options)
             random.shuffle(opts)
             questions_data.append({
@@ -209,6 +209,14 @@ def presentar_examen(session_id):
                 'order_list': items,
                 'points': eq.points
             })
+        elif q.question_type == 'open_answer':
+            text = (request.form.get(f'question_{q.id}') or '').strip()
+            questions_data.append({
+                'question': q,
+                'type': 'open_answer',
+                'points': eq.points
+            })
+            
     
     return render_template('presentar_examen.html', session=session_obj, exam=exam, questions_data=questions_data)
 
@@ -297,7 +305,7 @@ def submit_exam(session_id):
         selected_option_text = None
         correct_ans_text = snap.correct_answer_display if snap else None
         
-        if q.question_type in ['multiple_choice', 'true_false', 'video']:
+        if q.question_type in ['multiple_choice','multiple_select', 'true_false', 'video']:
             selected_id = request.form.get(f'question_{q.id}', type=int)
             is_correct = False
             if selected_id:
@@ -368,7 +376,42 @@ def submit_exam(session_id):
                 'is_correct': all_correct,
                 'points_awarded': eq_points if all_correct else 0.0
             })
-    
+        
+        elif q.question_type == 'open_answer':
+            text = (request.form.get(f'question_{q.id}') or '').strip()
+            student_answers.append({
+                'question_id': q.id,
+                'question_snapshot_id': snap.id if snap else None,
+                'question_statement': snap.statement if snap else q.statement,
+                'selected_option_id': None,
+                'selected_option_text': None,
+                'correct_answer_text': None,
+                'answer_text': text,
+                'is_correct': None,
+                'points_awarded': 0.0
+            })
+        
+        elif q.question_type == 'multiple_select':
+            selected_ids = request.form.getlist(f'question_{q.id}', type=int)
+            correct_ids  = {opt.id for opt in q.options if opt.is_correct}
+            selected_set = set(selected_ids)
+            is_correct   = (selected_set == correct_ids) and bool(correct_ids)
+            selected_texts = [opt.option_text for opt in q.options if opt.id in selected_set]
+            if is_correct:
+                earned += eq_points
+            student_answers.append({
+                'question_id': q.id,
+                'question_snapshot_id': snap.id if snap else None,
+                'question_statement': snap.statement if snap else q.statement,
+                'selected_option_id': None,
+                'selected_option_text': ', '.join(selected_texts),
+                'correct_answer_text': correct_ans_text,
+                'answer_text': ', '.join(selected_texts),
+                'is_correct': is_correct,
+                'points_awarded': eq_points if is_correct else 0.0
+            })
+
+
     final_score = (earned / total_possible * 100.0) if total_possible > 0 else 0.0
     
     attempt = ExamAttempt(
@@ -385,18 +428,18 @@ def submit_exam(session_id):
     
     for ans_data in student_answers:
         sa = StudentAnswer(
-            attempt_id=attempt.id,
+            attempt_id= attempt.id,
             question_id=ans_data['question_id'],
             question_snapshot_id=ans_data['question_snapshot_id'],
             question_statement=ans_data['question_statement'],
             selected_option_id=ans_data.get('selected_option_id'),
             selected_option_text=ans_data.get('selected_option_text'),
             correct_answer_text=ans_data.get('correct_answer_text'),
-            answer_text=ans_data.get('selected_option_text'),
+            answer_text=  ans_data.get('answer_text') or ans_data.get('selected_option_text'),
             is_correct=ans_data['is_correct'],
             points_awarded=ans_data.get('points_awarded', 0.0)
         )
-        db.session.add(sa)
+    db.session.add(sa)
     
     db.session.commit()
 
@@ -484,6 +527,7 @@ def session_report(session_id):
     # 3. Matriz Estudiante x Pregunta
     matrix_rows = []
     for att in attempts:
+        '''
         answers_map = {}
         for ans in att.answers:
             if ans.question_snapshot_id:
@@ -494,6 +538,21 @@ def session_report(session_id):
                     answers_map[matching_snap.id] = ans
                 else:
                     answers_map[f"orig_{ans.question_id}"] = ans
+        '''
+        answers_map = {}
+        for ans in att.answers:
+            if ans.question_snapshot_id:
+                answers_map[ans.question_snapshot_id] = ans
+            elif ans.question_id:
+                # fallback: buscar snapshot cuyo original_question_id coincida EXACTAMENTE
+                matching_snap = next(
+                    (s for s in snapshots if s.original_question_id == ans.question_id),
+                    None
+                )
+                key = matching_snap.id if matching_snap else f"orig_{ans.question_id}"
+                # Solo insertar si no hay ya una respuesta más precisa para ese snapshot
+                if key not in answers_map:
+                    answers_map[key] = ans
 
         student_row_answers = []
         for snap in snapshots:
@@ -546,10 +605,23 @@ def session_report(session_id):
                     options_counts[txt] = 0
 
         for att in attempts:
+            
+            
             matching_ans = next(
-                (a for a in att.answers if a.question_snapshot_id == snap.id or a.question_id == snap.original_question_id),
+                (a for a in att.answers if a.question_snapshot_id == snap.id),
                 None
             )
+            if matching_ans is None:
+                matching_ans = next(
+                    (a for a in att.answers
+                     if a.question_snapshot_id is None
+                     and a.question_id == snap.original_question_id),
+                    None
+                )
+
+
+
+            
             if matching_ans:
                 snap_answers.append({
                     'student_name': att.student.full_name if att.student else att.student.username,
@@ -558,7 +630,7 @@ def session_report(session_id):
                     'is_correct': matching_ans.is_correct,
                     'points_awarded': matching_ans.points_awarded
                 })
-                if matching_ans.is_correct:
+                if matching_ans.is_correct is True:
                     correct_count += 1
 
                 st_ans_txt = matching_ans.display_student_answer
@@ -586,6 +658,19 @@ def session_report(session_id):
             diff_label = 'Baja precisión / Difícil'
             diff_badge = 'bg-danger'
 
+        if snap.question_type == 'open_answer':
+            accuracy   = None
+            diff_label = 'Revisión manual'
+            diff_badge = 'bg-info text-dark'
+        else:
+            accuracy = round((correct_count / total_attempts * 100), 1) if total_attempts > 0 else 0.0
+            if accuracy >= 70:
+                diff_label, diff_badge = 'Alta precisión', 'bg-success'
+            elif accuracy >= 40:
+                diff_label, diff_badge = 'Precisión moderada', 'bg-warning text-dark'
+            else:
+                diff_label, diff_badge = 'Baja precisión / Difícil', 'bg-danger'
+                
         question_analytics.append({
             'snapshot': snap,
             'order': snap.order_index,
