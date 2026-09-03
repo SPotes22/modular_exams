@@ -201,6 +201,8 @@ def handle_answer_submitted(data):
         print(f"[WARN] LiveAnswer upsert: {e}")
 
     # ── Notificar al instructor que este alumno respondió esta pregunta ───────
+    _mode(session).on_answer(session, student, question_id, answer)
+    
     try:
         db_session = db_session or DbExamSession.query.filter_by(session_code=room_code).first()
         if db_session and db_session.exam:
@@ -209,11 +211,13 @@ def handle_answer_submitted(data):
                 'username': student.username,
                 'question_id': question_id,
                 'room_code': room_code,
+                'answered_count': len(student.answered_questions),
             }, to=f"teacher_{db_session.exam.instructor_id}")
     except Exception as e:
         print(f"[WARN] student_answered emit: {e}")
-
-    _mode(session).on_answer(session, student, question_id, answer)
+    
+    _emit_students(session)
+    
 
 
 # ── Next question (teacher_paced) ────────────────────────────────────────────

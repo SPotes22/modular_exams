@@ -11,7 +11,9 @@ from app.modes import registry
 from app.services.exam_content import normalize_room_code, create_session_question_snapshots
 from app.models import (
     User, Bank, Question, QuestionOption, Exam, ExamQuestion, 
-    ExamSession, ExamAttempt, StudentAnswer, SessionQuestionSnapshot
+    ExamSession, ExamAttempt, StudentAnswer, SessionQuestionSnapshot,
+    LiveAnswer
+    
 )
 from app.blueprints.exams import exams_bp
 
@@ -179,7 +181,7 @@ def presentar_examen(session_id):
     for eq in eq_list:
         q = eq.question
         
-        if q.question_type in ['multiple_choice','multiple_select', 'true_false', 'video']:
+        if q.question_type in ['multiple_choice', 'true_false', 'video']:
             opts = list(q.options)
             random.shuffle(opts)
             questions_data.append({
@@ -274,6 +276,18 @@ def create_advanced_exam():
 @login_required
 def submit_exam(session_id):
     session_obj = ExamSession.query.get_or_404(session_id)
+
+    live_answers = LiveAnswer.query.filter_by(
+        session_id=session_id,
+        student_id=current_user.id
+    ).all()
+
+    live_answers_map = {
+        row.question_id: row.answer_json
+        for row in live_answers
+    }
+    
+
     
     # Evitar múltiples envíos del mismo estudiante para la misma sesión
     attempt_count = ExamAttempt.query.filter_by(student_id=current_user.id, session_id=session_id).count()
@@ -298,6 +312,7 @@ def submit_exam(session_id):
         q = eq.question
         if not q:
             continue
+        live_answer = live_answers_map.get(q.id)
         eq_points = float(eq.points if eq.points is not None else 1.0)
         total_possible += eq_points
         
@@ -305,7 +320,7 @@ def submit_exam(session_id):
         selected_option_text = None
         correct_ans_text = snap.correct_answer_display if snap else None
         
-        if q.question_type in ['multiple_choice','multiple_select', 'true_false', 'video']:
+        if q.question_type in ['multiple_choice', 'true_false', 'video']:
             selected_id = request.form.get(f'question_{q.id}', type=int)
             is_correct = False
             if selected_id:
@@ -392,13 +407,39 @@ def submit_exam(session_id):
             })
         
         elif q.question_type == 'multiple_select':
-            selected_ids = request.form.getlist(f'question_{q.id}', type=int)
-            correct_ids  = {opt.id for opt in q.options if opt.is_correct}
+            if live_answer:
+                selected_ids = [
+                    int(x)
+                    for x in (live_answer.get('selected_option_ids') or [])
+                ]
+            else:
+                selected_ids = request.form.getlist(
+                    f'question_{q.id}',
+                    type=int
+                )
+        
+            correct_ids = {
+                opt.id
+                for opt in q.options
+                if opt.is_correct
+            }
+        
             selected_set = set(selected_ids)
-            is_correct   = (selected_set == correct_ids) and bool(correct_ids)
-            selected_texts = [opt.option_text for opt in q.options if opt.id in selected_set]
+        
+            is_correct = (
+                selected_set == correct_ids
+                and bool(correct_ids)
+            )
+        
+            selected_texts = [
+                opt.option_text
+                for opt in q.options
+                if opt.id in selected_set
+            ]
+        
             if is_correct:
                 earned += eq_points
+        
             student_answers.append({
                 'question_id': q.id,
                 'question_snapshot_id': snap.id if snap else None,
@@ -439,7 +480,7 @@ def submit_exam(session_id):
             is_correct=ans_data['is_correct'],
             points_awarded=ans_data.get('points_awarded', 0.0)
         )
-    db.session.add(sa)
+        db.session.add(sa)
     
     db.session.commit()
 

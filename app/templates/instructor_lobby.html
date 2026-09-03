@@ -301,23 +301,37 @@ function escapeHtml(str) {
     .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
-// Mapa de answeredCounts recibidos por student_answered (sin esperar students_updated)
-const _answeredCounts = {};
+// contador de progreso actualizado 
+const _answeredQuestions = {};
 
 socket.on('students_updated', data => renderStudents(data.students));
 
-// Recibe notificación individual: estudiante respondió una pregunta
 socket.on('student_answered', data => {
-  _answeredCounts[data.student_id] = (_answeredCounts[data.student_id] || 0) + 1;
-  // Actualizar badge inline si ya existe el li
-  const badge = document.getElementById(`answered-badge-${data.student_id}`);
-  if (badge) badge.textContent = `${_answeredCounts[data.student_id]} / ${examQuestions.length}`;
+  const studentId = data.student_id;
+  const questionId = data.question_id;
+
+  if (!_answeredQuestions[studentId]) {
+    _answeredQuestions[studentId] = new Set();
+  }
+
+  
+  const answered = student.answered_count || 0;
+  const answeredCount = _answeredQuestions[studentId].size;
+
+  const badge = document.getElementById(`answered-badge-${studentId}`);
+  if (badge && typeof data.answered_count !== 'undefined' ) {
+    badge.textContent = `${answeredCount} / ${examQuestions.length}`;
+  }
 });
+
+    
 
 function renderStudents(students) {
   const list  = document.getElementById('students-list');
   const count = document.getElementById('live-count');
+  const answered = student.answered_count || 0;
   list.innerHTML = '';
+    
 
   if (!students || students.length === 0) {
     count.textContent = '0 en línea';
@@ -334,10 +348,29 @@ function renderStudents(students) {
 
   students.forEach(student => {
     // Usar answered_count del socket (students_updated) o del mapa student_answered
-    const answered = Math.max(
-      student.answered_count || 0,
-      _answeredCounts[student.id] || 0
-    );
+      
+    
+
+    socket.on('students_updated', data => renderStudents(data.students));
+    
+    socket.on('student_answered', data => {
+      const studentId = data.student_id;
+      const questionId = data.question_id;
+    
+      if (!_answeredQuestions[studentId]) {
+        _answeredQuestions[studentId] = new Set();
+      }
+    
+      
+    
+      const answeredCount = _answeredQuestions[studentId].size;
+    
+      const badge = document.getElementById(`answered-badge-${studentId}`);
+      if (badge) {
+        badge.textContent = `${answeredCount} / ${examQuestions.length}`;
+      }
+    });
+      
     const pct = examQuestions.length > 0 ? Math.round(answered / examQuestions.length * 100) : 0;
 
     const li = document.createElement('li');

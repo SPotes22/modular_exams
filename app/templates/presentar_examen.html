@@ -104,7 +104,6 @@
               <img src="{{ q.image_url }}" class="img-fluid rounded mb-3" style="max-height:250px;">
             {% endif %}
             {% if q.video_url %}
-              {# Convertir URL de YouTube a URL embebible #}
               {% set yt_url = q.video_url %}
               {% if 'youtu.be/' in yt_url %}
                 {% set yt_id = yt_url.split('youtu.be/')[-1].split('?')[0] %}
@@ -139,6 +138,18 @@
             </div>
             {% endfor %}
 
+          {# ── Selección múltiple ── #}
+          {% elif item.type == 'multiple_select' %}
+            <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i>Puedes seleccionar más de una opción.</p>
+            {% for opt in item.options %}
+            <div class="form-check card mb-2 p-3 border option-card">
+              <input class="form-check-input ms-1" type="checkbox"
+                     name="question_{{ q.id }}" value="{{ opt.id }}" id="opt_{{ opt.id }}"
+                     data-question-id="{{ q.id }}">
+              <label class="form-check-label ms-2 w-100" for="opt_{{ opt.id }}">{{ opt.option_text }}</label>
+            </div>
+            {% endfor %}
+
           {# ── Emparejamiento ── #}
           {% elif item.type == 'matching' %}
             <p class="text-muted small mb-3">Selecciona la coincidencia para cada término.</p>
@@ -156,7 +167,6 @@
               </div>
             </div>
             {% endfor %}
-            {# Campo oculto para saber si la pregunta fue "tocada" #}
             <input type="hidden" name="question_{{ q.id }}_type" value="matching">
 
           {# ── Ordenamiento ── #}
@@ -178,20 +188,7 @@
             </div>
             {% endfor %}
             <input type="hidden" name="question_{{ q.id }}_type" value="ordering">
-        
-          {# ── Respuesta abierta ── #}
-            {% elif item.type == 'multiple_select' %}
-  <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i>Puedes seleccionar más de una opción.</p>
-  {% for opt in item.options %}
-  <div class="form-check card mb-2 p-3 border option-card">
-    <input class="form-check-input ms-1" type="checkbox"
-           name="question_{{ q.id }}" value="{{ opt.id }}" id="opt_{{ opt.id }}"
-           data-question-id="{{ q.id }}">
-    <label class="form-check-label ms-2 w-100" for="opt_{{ opt.id }}">{{ opt.option_text }}</label>
-  </div>
-  {% endfor %}
 
-            
           {# ── Respuesta abierta ── #}
           {% elif item.type == 'open_answer' %}
             <textarea name="question_{{ q.id }}"
@@ -203,10 +200,7 @@
               Tu respuesta se guarda automáticamente cuando haces clic en "Siguiente" o "Enviar".
             </small>
 
-          
-            
-            
-            {% endif %}
+          {% endif %}
         </div>
         {% endfor %}
 
@@ -257,9 +251,7 @@ let currentStep  = 0;
 let isPaused     = false;
 let activePollId = null;
 let pollVoted    = false;
-// Mapa { question_id: answer_json } — se hidrata desde saved_progress
 let savedAnswers = {};
-// Cuántas preguntas se guardaron en servidor
 let savedCount   = 0;
 
 /* ── helpers overlay ─────────────────────────────────────────────────────── */
@@ -272,7 +264,6 @@ function showPause() {
   const el = document.getElementById('pause-screen');
   el.classList.remove('d-none');
   el.style.display = 'flex';
-  // Deshabilitar inputs para evitar edición durante pausa
   document.querySelectorAll('#exam-form input, #exam-form select, #exam-form textarea, #exam-form button')
     .forEach(el => el.disabled = true);
 }
@@ -281,7 +272,6 @@ function hidePause() {
   const el = document.getElementById('pause-screen');
   el.classList.add('d-none');
   el.style.display = '';
-  // Rehabilitar inputs
   document.querySelectorAll('#exam-form input, #exam-form select, #exam-form textarea, #exam-form button')
     .forEach(el => el.disabled = false);
   updateStepView();
@@ -305,7 +295,6 @@ socket.on('session_state', data => {
   if (data.can_submit) document.getElementById('btn-submit')?.classList.remove('d-none');
 });
 
-/* instant_feedback: único modo que muestra feedback con resultado */
 socket.on('feedback', data => {
   if (EXAM_MODE !== 'instant_feedback') return;
   const icon = data.correct ? '✔' : '✘';
@@ -314,13 +303,12 @@ socket.on('feedback', data => {
   if (data.next_question) showQuestionById(data.next_question.id);
   if (data.finished) document.getElementById('btn-submit')?.classList.remove('d-none');
 });
-
-/* Confirmación silenciosa — cualquier otro modo */
+//here
 socket.on('answer_saved', data => {
   markSaved(data.question_id);
   savedCount = data.answered_count;
   updateAnsweredBadge();
-  if (data.can_submit) document.getElementById('btn-submit')?.classList.remove('d-none');
+  updateStepView();
 });
 
 socket.on('next_question', data => {
@@ -329,15 +317,19 @@ socket.on('next_question', data => {
 
 socket.on('exam_error', data => showToast(data.message, 'danger'));
 
-/* Restaurar progreso guardado (LiveAnswer) */
 socket.on('saved_progress', data => {
+    
   savedAnswers = data.answers || {};
+    
   Object.keys(savedAnswers).forEach(qid => {
     restoreAnswer(parseInt(qid), savedAnswers[qid]);
     markSaved(parseInt(qid));
   });
+    
   savedCount = Object.keys(savedAnswers).length;
   updateAnsweredBadge();
+  updateStepView();
+  goToFirstUnanswered();
 });
 
 /* ── Poll ─────────────────────────────────────────────────────────────────── */
@@ -433,7 +425,7 @@ function renderPollResults(poll) {
   cont.innerHTML = html;
 }
 
-/* ── Toast no-bloqueante (reemplaza alert) ────────────────────────────────── */
+/* ── Toast ────────────────────────────────────────────────────────────────── */
 function showToast(msg, type='info') {
   let container = document.getElementById('toast-container');
   if (!container) {
@@ -475,6 +467,10 @@ function collectAnswer(step) {
     const checked = step.querySelector(`input[name="question_${questionId}"]:checked`);
     answer.selected_option_id = checked ? parseInt(checked.value) : null;
 
+  } else if (type === 'multiple_select') {
+    const checked = [...step.querySelectorAll(`input[name="question_${questionId}"]:checked`)];
+    answer.selected_option_ids = checked.map(c => parseInt(c.value));
+
   } else if (type === 'matching') {
     const pairs = {};
     step.querySelectorAll('select[data-pair-id]').forEach(sel => {
@@ -494,9 +490,6 @@ function collectAnswer(step) {
     const ta = step.querySelector('textarea');
     answer.text = ta ? ta.value.trim() : '';
   }
-    else if (type === 'multiple_select') {
-    const checked = [...step.querySelectorAll(`input[name="question_${questionId}"]:checked`)];
-    answer.selected_option_ids = checked.map(c => parseInt(c.value));
 
   return answer;
 }
@@ -511,6 +504,12 @@ function restoreAnswer(questionId, answer) {
   if ((type === 'multiple_choice' || type === 'true_false' || type === 'video') && answer.selected_option_id) {
     const radio = step.querySelector(`input[value="${answer.selected_option_id}"]`);
     if (radio) radio.checked = true;
+
+  } else if (type === 'multiple_select' && answer.selected_option_ids) {
+    answer.selected_option_ids.forEach(id => {
+      const chk = step.querySelector(`input[value="${id}"]`);
+      if (chk) chk.checked = true;
+    });
 
   } else if (type === 'matching' && answer.pair_map) {
     Object.entries(answer.pair_map).forEach(([pairId, val]) => {
@@ -537,11 +536,14 @@ function submitRealtimeAnswer() {
   const step  = steps[currentStep];
   if (!step) return;
   const answer = collectAnswer(step);
-  // Solo emitir si hay algo que enviar
+
+  // Verifica que haya contenido real antes de emitir
   const hasContent = answer.selected_option_id != null
+    || (answer.selected_option_ids && answer.selected_option_ids.length > 0)
     || (answer.pair_map  && Object.values(answer.pair_map).some(Boolean))
-    || (answer.order_map && Object.values(answer.order_map).some(v=>v!=null))
-    || (answer.text);
+    || (answer.order_map && Object.values(answer.order_map).some(v => v != null))
+    || (answer.text && answer.text.length > 0);
+
   if (!hasContent) return;
 
   socket.emit('answer_submitted', {
@@ -560,7 +562,7 @@ function showQuestionById(questionId) {
 }
 
 function nextQuestion() {
-  submitRealtimeAnswer();   // guarda antes de avanzar
+  submitRealtimeAnswer();
   if (currentStep < TOTAL_Q - 1) { currentStep++; updateStepView(); }
 }
 function prevQuestion() {
@@ -568,27 +570,66 @@ function prevQuestion() {
   if (currentStep > 0) { currentStep--; updateStepView(); }
 }
 
+function clampCurrentStep() {
+  if (TOTAL_Q <= 0) {
+    currentStep = 0;
+    return;
+  }
+
+  currentStep = Math.max(
+    0,
+    Math.min(currentStep, TOTAL_Q - 1)
+  );
+}
+
+
+
+    
 function updateStepView() {
   if (TOTAL_Q === 0) return;
+
+  clampCurrentStep();
+    
   document.querySelectorAll('.question-step').forEach((el, i) => {
     el.style.display = (i === currentStep) ? 'block' : 'none';
   });
-  // Solo teacher_paced bloquea la navegación manual; instant_feedback y open_navigation
-  // permiten que el estudiante avance con el botón Siguiente.
+  
   const isPaced  = EXAM_MODE === 'teacher_paced';
   const isLast   = currentStep === TOTAL_Q - 1;
+  const allAnswered = savedCount >= TOTAL_Q;
   const btnPrev  = document.getElementById('btn-prev');
   const btnNext  = document.getElementById('btn-next');
   const btnSub   = document.getElementById('btn-submit');
   if (btnPrev) btnPrev.disabled = (currentStep === 0 || isPaced);
   if (btnNext) btnNext.classList.toggle('d-none', isLast || isPaced);
-  if (btnSub)  btnSub.classList.toggle('d-none',  !isLast || isPaced);
+  if (btnSub) {
+      btnSub.classList.toggle('d-none',  !allAnswered || isPaced);
+      }
   const ind = document.getElementById('question-indicator');
   if (ind) ind.textContent = `Pregunta ${currentStep+1} de ${TOTAL_Q}`;
   const bar = document.getElementById('exam-progress-bar');
   if (bar) bar.style.width = `${Math.round((currentStep+1)/TOTAL_Q*100)}%`;
 }
 
+
+// llevar al alumno a la primera pregunta no respondida despues de recuperar progreso
+function goToFirstUnanswered() {
+  const steps = [...document.querySelectorAll('.question-step')];
+
+  const unansweredIndex = steps.findIndex(step => {
+    const questionId = String(parseInt(step.dataset.questionId));
+    return !Object.prototype.hasOwnProperty.call(savedAnswers, questionId);
+  });
+
+  if (unansweredIndex >= 0) {
+    currentStep = unansweredIndex;
+  } else if (TOTAL_Q > 0) {
+    currentStep = TOTAL_Q - 1;
+  }
+
+  updateStepView();
+}
+    
 /* ── Polling de estado (fallback) ────────────────────────────────────────── */
 {% if session.status != 'in_progress' %}
 function checkStatus() {
