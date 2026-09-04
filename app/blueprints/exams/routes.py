@@ -181,7 +181,7 @@ def presentar_examen(session_id):
     for eq in eq_list:
         q = eq.question
         
-        if q.question_type in ['multiple_choice', 'true_false', 'video']:
+        if q.question_type in ['multiple_choice', 'multiple_select', 'true_false', 'video']:
             opts = list(q.options)
             random.shuffle(opts)
             questions_data.append({
