@@ -73,10 +73,40 @@ def test_exam_builder_add_duplicate_order_and_random_validation(app_ctx):
     assert c.post(f'/instructor/exam/{exam_id}/add-bank', data={'question_ids': [str(q1_id), str(q2_id)]}).status_code == 302
     with app.app_context():
         assert ExamQuestion.query.filter_by(exam_id=exam_id).count() == 2
+        # Cada pregunta agregada en el mismo POST debe quedar con un order_index
+        # distinto (columna "P1", "P2"... en la Matriz de Resultados), no todas en 1.
+        order_indexes = sorted(eq.order_index for eq in ExamQuestion.query.filter_by(exam_id=exam_id).all())
+        assert order_indexes == [1, 2]
     assert c.post(f'/instructor/exam/{exam_id}/question/{q1_id}/duplicate').status_code == 302
     with app.app_context():
         assert ExamQuestion.query.filter_by(exam_id=exam_id).count() == 3
     c.post(f'/instructor/exam/{exam_id}/add-bank', data={'random_count': 99})
+
+
+def test_exam_builder_bulk_add_many_questions_have_sequential_order(app_ctx):
+    """Reproduce el escenario real: agregar 4+ preguntas de golpe desde el banco
+    no debe dejarlas todas con el mismo order_index (rompía la Matriz de Resultados,
+    mostrando todas las columnas como 'P1')."""
+    app, teacher, *_ = app_ctx
+    with app.app_context():
+        bank = make_bank(teacher)
+        questions = [Question(bank_id=bank.id, statement=f'Q{i}', default_points=1) for i in range(4)]
+        exam = Exam(title='Exam Bulk', instructor_id=teacher.id)
+        db.session.add_all(questions + [exam])
+        db.session.commit()
+        exam_id = exam.id
+        question_ids = [q.id for q in questions]
+
+    c = app.test_client(); login(c, 'teacher@example.com')
+    res = c.post(
+        f'/instructor/exam/{exam_id}/add-bank',
+        data={'question_ids': [str(qid) for qid in question_ids]}
+    )
+    assert res.status_code == 302
+
+    with app.app_context():
+        order_indexes = sorted(eq.order_index for eq in ExamQuestion.query.filter_by(exam_id=exam_id).all())
+        assert order_indexes == [1, 2, 3, 4]
 
 
 def test_authorization_and_session_controls(app_ctx):

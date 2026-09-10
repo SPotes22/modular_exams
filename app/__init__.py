@@ -19,6 +19,7 @@ def ensure_schema():
     attempt_columns = {col['name'] for col in inspector.get_columns('exam_attempts')} if 'exam_attempts' in table_names else set()
     answer_columns = {col['name'] for col in inspector.get_columns('student_answers')} if 'student_answers' in table_names else set()
     user_columns = {col['name'] for col in inspector.get_columns('users')} if 'users' in table_names else set()
+    learning_columns = {col['name'] for col in inspector.get_columns('learnings')} if 'learnings' in table_names else set()
     with db.engine.begin() as conn:
         _add_column_if_missing(conn, exam_columns, 'exams', 'exam_mode', "VARCHAR(30) DEFAULT 'instant_feedback'")
         _add_column_if_missing(conn, exam_columns, 'exams', 'source_bank_id', 'INTEGER')
@@ -31,6 +32,7 @@ def ensure_schema():
         _add_column_if_missing(conn, exam_columns, 'exams', 'max_attempts', 'INTEGER DEFAULT 1')
         _add_column_if_missing(conn, exam_columns, 'exams', 'created_at', 'DATETIME')
         _add_column_if_missing(conn, exam_columns, 'exams', 'updated_at', 'DATETIME')
+        _add_column_if_missing(conn, exam_columns, 'exams', 'auto_remediation', 'BOOLEAN DEFAULT 0')
         _add_column_if_missing(conn, session_columns, 'exam_sessions', 'expected_students', 'INTEGER DEFAULT 0')
         _add_column_if_missing(conn, session_columns, 'exam_sessions', 'question_order', "VARCHAR(20) DEFAULT 'original'")
         _add_column_if_missing(conn, question_columns, 'questions', 'default_points', 'FLOAT DEFAULT 1.0')
@@ -51,6 +53,7 @@ def ensure_schema():
         _add_column_if_missing(conn, user_columns, 'users', 'last_name', "VARCHAR(80)")
         _add_column_if_missing(conn, user_columns, 'users', 'phone', "VARCHAR(30)")
         _add_column_if_missing(conn, user_columns, 'users', 'institution', "VARCHAR(150)")
+        _add_column_if_missing(conn, learning_columns, 'learnings', 'source_session_id', 'INTEGER')
 
 def init_db():
     from app.models import (User, Bank, Question, QuestionOption, Exam, ExamQuestion,

@@ -10,4 +10,6 @@ app/videos/*
 venv
 /venv/
 venv/
+*.swp
+instance/
 

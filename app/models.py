@@ -290,6 +290,10 @@ class Learning(db.Model):
     estado = db.Column(db.String(20), default='draft')  # 'draft', 'published'
     portada = db.Column(db.String(255), nullable=True)
     autor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # Sesión de examen que originó este curso (solo para capacitaciones de refuerzo
+    # auto-generadas). Permite no duplicar el curso si la generación se dispara
+    # más de una vez para la misma sesión.
+    source_session_id = db.Column(db.Integer, db.ForeignKey('exam_sessions.id'), nullable=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

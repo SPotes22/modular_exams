@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.config import Config
 from app import create_app
 from app.extensions import db
-from app.models import Exam, ExamSession, User
+from app.models import Bank, Exam, ExamSession, User
 from app.realtime.manager import session_manager
 
 
@@ -70,6 +70,7 @@ def test_register_student_success(app_ctx):
         assert user.institution == 'Instituto Técnico Central'
         assert user.role == 'student'
         assert user.check_password('password123')
+        assert Bank.query.filter_by(created_by=user.id).count() == 0
 
 
 def test_register_instructor_success(app_ctx):
@@ -98,6 +99,36 @@ def test_register_instructor_success(app_ctx):
         assert user.institution == 'Colegio Mayor'
         assert user.role == 'instructor'
         assert user.check_password('password123')
+
+        default_banks = Bank.query.filter_by(created_by=user.id).all()
+        assert len(default_banks) == 1
+        assert default_banks[0].name == f"Mi Banco de Preguntas #{user.id}"
+
+
+def test_register_two_instructors_each_get_their_own_default_bank(app_ctx):
+    """Dos profesores nuevos no deben chocar por el nombre único del banco."""
+    app, _ = app_ctx
+    client = app.test_client()
+
+    for idx, email in enumerate(['prof.a@test.com', 'prof.b@test.com']):
+        payload = {
+            'first_name': f'Prof{idx}',
+            'last_name': 'Test',
+            'email': email,
+            'password': 'password123',
+            'password_confirm': 'password123',
+            'role': 'instructor'
+        }
+        res = client.post('/register', data=payload, follow_redirects=True)
+        assert res.status_code == 200
+        client.get('/logout')
+
+    with app.app_context():
+        users = User.query.filter(User.email.in_(['prof.a@test.com', 'prof.b@test.com'])).all()
+        assert len(users) == 2
+        for user in users:
+            banks = Bank.query.filter_by(created_by=user.id).all()
+            assert len(banks) == 1
 
 
 def test_register_validation_duplicate_email_and_password_mismatch(app_ctx):

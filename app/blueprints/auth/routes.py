@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
-from app.models import User, ExamSession
+from app.models import User, ExamSession, Bank
 from app.blueprints.auth import auth_bp
 
 @auth_bp.route('/')
@@ -99,6 +99,16 @@ def register():
         )
         new_user.set_password(password)
         db.session.add(new_user)
+        db.session.flush()  # asigna new_user.id sin cerrar la transacción
+
+        if new_user.role == 'instructor':
+            default_bank = Bank(
+                name=f"Mi Banco de Preguntas #{new_user.id}",
+                description="Banco de preguntas por defecto, creado automáticamente para que puedas empezar a agregar tus preguntas.",
+                created_by=new_user.id
+            )
+            db.session.add(default_bank)
+
         db.session.commit()
 
         login_user(new_user)
@@ -133,7 +143,7 @@ def student_join_exam():
             flash('Código de examen no encontrado.', 'danger')
             return redirect(url_for('auth.student_join_exam'))
 
-        if session_obj.status == 'finished':
+        if session_obj.status in ['finished', 'FINISHED', 'closed', 'CLOSED']:
             flash('Esta sala ya finalizó.', 'danger')
             return redirect(url_for('auth.student_join_exam'))
 

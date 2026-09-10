@@ -17,6 +17,15 @@ from app.models import (
 )
 from app.blueprints.exams import exams_bp
 
+def maybe_generate_remediation(session_obj):
+    """Dispara la capacitación de refuerzo automática al finalizar una sesión,
+    si el examen tiene 'Retroalimentación automática' activada. Es seguro
+    llamarla más de una vez para la misma sesión (RemediationService es idempotente)."""
+    if not session_obj or not session_obj.exam or not session_obj.exam.auto_remediation:
+        return
+    from app.services.remediation_service import RemediationService
+    RemediationService.build_remediation_course(session_obj.id)
+
 def build_session_results_rows(session_id):
     session_obj = ExamSession.query.get(session_id)
     if session_obj:
@@ -490,6 +499,7 @@ def submit_exam(session_id):
     if session_obj.expected_students and completed_count >= session_obj.expected_students:
         session_obj.status = 'finished'
         db.session.commit()
+        maybe_generate_remediation(session_obj)
         socketio.emit('all_students_finished', {
             'session_id': session_id,
             'download_url': url_for('exams.download_session_results_excel', session_id=session_id)
@@ -518,7 +528,8 @@ def close_session(session_id):
     if current_user.role == 'instructor':
         session_obj.status = 'finished'
         db.session.commit()
-        
+        maybe_generate_remediation(session_obj)
+
         socketio.emit('exam_closed', {'session_id': session_id}, room=f"session_{session_obj.session_code}")
         flash('La sesión de examen ha sido finalizada correctamente.', 'info')
     
@@ -529,9 +540,12 @@ def close_session(session_id):
 def exam_reports():
     if current_user.role != 'instructor':
         return redirect(url_for('auth.home'))
+    # El estado "finalizada" se guarda con distinta capitalización según la ruta
+    # que cerró la sesión ('finished' vs 'FINISHED'/'closed'/'CLOSED') — ver
+    # [[Bugs y Decisiones]] en la bóveda de Obsidian. Se filtra por todas las variantes.
     sessions = ExamSession.query.join(Exam).filter(
         Exam.instructor_id == current_user.id,
-        ExamSession.status == 'finished'
+        ExamSession.status.in_(['finished', 'FINISHED', 'closed', 'CLOSED'])
     ).order_by(ExamSession.created_at.desc()).all()
     return render_template('exam_reports.html', sessions=sessions)
 
@@ -1024,6 +1038,8 @@ def control_session(session_id, action):
         return 'Acceso denegado', 403
     session.status = allowed[action]
     db.session.commit()
+    if action == 'finish':
+        maybe_generate_remediation(session)
     event = {'pause': 'exam_paused', 'resume': 'exam_resumed', 'finish': 'exam_finished', 'start': 'exam_started'}[action]
     socketio.emit(event, {'session_id': session.id, 'status': session.status}, to=f"session_{session.session_code}")
     flash(f'Sesión actualizada: {session.status}', 'success')

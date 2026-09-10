@@ -111,7 +111,13 @@ def add_question_to_exam(exam, question, points=None):
     existing = ExamQuestion.query.get((exam.id, question.id))
     if existing:
         return existing
-    eq = ExamQuestion(exam_id=exam.id, question_id=question.id, points=validate_points(points or question.default_points or 1), order_index=next_order(exam))
+    order_index = next_order(exam)
+    eq = ExamQuestion(question_id=question.id, points=validate_points(points or question.default_points or 1), order_index=order_index)
+    # Se agrega vía la colección (en vez de fijar exam_id a mano) para que
+    # exam.questions quede sincronizado en memoria: si se llama de nuevo dentro
+    # del mismo request (p. ej. agregando varias preguntas del banco en un solo
+    # POST), next_order() ve esta pregunta recién agregada y no repite el índice.
+    exam.questions.append(eq)
     db.session.add(eq)
     return eq
 
