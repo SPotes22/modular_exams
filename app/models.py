@@ -112,6 +112,7 @@ class Exam(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     source_bank = db.relationship('Bank')
     questions = db.relationship('ExamQuestion', backref='exam', cascade="all, delete-orphan", order_by="ExamQuestion.order_index")
+    auto_remediation = db.Column(db.Boolean, default=False)
 
 class ExamQuestion(db.Model):
     __tablename__ = 'exam_questions'

@@ -617,6 +617,44 @@
 
 </div>
 
+
+<!-- En session_report.html -->
+{% if session.exam.auto_remediation %}
+<button type="button" class="btn btn-warning shadow-sm" data-bs-toggle="modal" data-bs-target="#remediationModal">
+  <i class="bi bi-journal-plus me-1"></i> Generar Capacitación
+</button>
+{% endif %}
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="remediationModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Generar Capacitación Automática</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Se identificaron estudiantes con un puntaje menor al 40%. ¿Deseas generar el curso de refuerzo automático con `Learning Builder`?</p>
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold">Añadir estudiantes adicionales (opcional):</label>
+          <select id="extraStudentsSelect" class="form-select" multiple>
+            {% for student in all_students %}
+              <option value="{{ student.id }}">{{ student.name }} ({{ student.score }}%)</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnConfirmRemediation">Generar Curso</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 <!-- QUICK DETAIL POPUP MODAL (FROM MATRIX CLICK) -->
 <div class="modal fade no-print" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -744,5 +782,23 @@ function showAnswerModal(student, question, studentAns, correctAns, isCorrect, p
         fbBox.classList.add('d-none');
     }
 }
+</script>
+<script>
+document.getElementById('btnConfirmRemediation')?.addEventListener('click', async () => {
+  const extraStudents = Array.from(document.getElementById('extraStudentsSelect').selectedOptions).map(o => parseInt(o.value));
+  
+  const res = await fetch('/learning/generate-remediation/{{ session.id }}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ extra_student_ids: extraStudents })
+  });
+  
+  const data = await res.json();
+  if (data.success) {
+    window.location.href = data.redirect_url;
+  } else {
+    alert(data.message);
+  }
+});
 </script>
 {% endblock %}

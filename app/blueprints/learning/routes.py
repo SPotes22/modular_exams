@@ -2,12 +2,13 @@ import os
 import json
 import uuid
 from werkzeug.utils import secure_filename
-from flask import render_template, request, redirect, url_for, flash, jsonify, send_file, current_app
+from flask import render_template, request, redirect, url_for, flash, jsonify, send_file, current_app , Blueprint
 from flask_login import login_required, current_user
 from app.extensions import db, socketio
 from app.models import Learning, LearningModule, Lesson, Block, LearningProgress, BlockAnswer
 from app.blueprints.learning import learning_bp
 from app.services import learning_service
+from app.services import remediation_service
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'pdf', 'mp3'}
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
@@ -555,4 +556,27 @@ def api_submit_block_answer():
     return jsonify({
         'success': True,
         'result': result
+    })
+
+
+
+### REEMPLAZA desde "##" hasta el final del archivo por esto:
+
+from app.services.remediation_service import RemediationService
+
+@learning_bp.route('/generate-remediation/<int:session_id>', methods=['POST'])
+@login_required
+def generate_remediation(session_id):
+    data = request.get_json() or {}
+    extra_students = data.get('extra_student_ids', [])
+
+    course = RemediationService.build_remediation_course(session_id, extra_students)
+
+    if not course:
+        return jsonify({"success": False, "message": "No hay datos suficientes para generar la capacitación."}), 400
+
+    return jsonify({
+        "success": True,
+        "course_id": course.id,
+        "redirect_url": url_for('learning.builder', learning_id=course.id)
     })

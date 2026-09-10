@@ -103,16 +103,29 @@
       <label class="form-label fw-semibold">Duración (minutos)</label>
       <input type="number" name="duration_minutes" value="{{ exam.duration_minutes }}" class="form-control" min="1">
     </div>
-    <div class="col-md-3">
-      <label class="form-label fw-semibold">Límite de Intentos</label>
-      <input type="number" name="max_attempts" value="{{ exam.max_attempts or 1 }}" class="form-control" min="1">
-    </div>
-    <div class="col-12">
-      <div class="form-check form-switch">
+
+
+      
+        <div class="col-12">
+      <div class="form-check form-switch mb-1">
         <input type="checkbox" name="allow_multiple_attempts" class="form-check-input" id="allowMultipleAttempts" {% if exam.allow_multiple_attempts %}checked{% endif %}>
         <label class="form-check-label fw-semibold" for="allowMultipleAttempts">Permitir múltiples intentos por estudiante</label>
       </div>
+      <div id="maxAttemptsWrapper" class="ms-1 mt-1" {% if not exam.allow_multiple_attempts %}style="display:none"{% endif %}>
+        <label class="form-label fw-semibold mb-1 small">Límite de intentos</label>
+        <input type="number" name="max_attempts" value="{{ exam.max_attempts or 1 }}" class="form-control form-control-sm w-25" min="1">
+      </div>
     </div>
+
+    <div class="col-12">
+      <div class="form-check form-switch">
+        <input type="checkbox" name="auto_remediation" class="form-check-input" id="autoRemediation" {% if exam.auto_remediation %}checked{% endif %}>
+        <label class="form-check-label fw-semibold" for="autoRemediation">Retroalimentación automática</label>
+        <div class="form-text">Genera un curso de refuerzo en Learning Builder para estudiantes con menos del 40%.</div>
+      </div>
+    </div>
+
+
   </div>
 
   <!-- Included Questions Section -->
@@ -450,6 +463,14 @@ function toggleSelectAllBank(chk) {
     }
   });
 }
+    (function () {
+  const toggle  = document.getElementById('allowMultipleAttempts');
+  const wrapper = document.getElementById('maxAttemptsWrapper');
+  if (!toggle || !wrapper) return;
+  toggle.addEventListener('change', function () {
+    wrapper.style.display = this.checked ? '' : 'none';
+  });
+})();
 </script>
 {% endblock %}
 
