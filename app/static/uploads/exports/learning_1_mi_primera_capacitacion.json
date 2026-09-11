@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "nombre": "mi primera capacitacion",
+  "descripcion": "sadsa",
+  "portada": null,
+  "modules": [
+    {
+      "titulo": "Módulo 1: Introducción",
+      "descripcion": "Fundamentos e introducción",
+      "orden": 1,
+      "lessons": [
+        {
+          "titulo": "Lección 1: Bienvenido",
+          "descripcion": "Contenido inicial",
+          "orden": 1,
+          "blocks": [
+            {
+              "tipo": "title",
+              "orden": 1,
+              "visible": true,
+              "configuracion": {
+                "title": "¡Bienvenido a la capacitación!",
+                "subtitle": "Comienza a explorar los bloques interactivos.",
+                "level": "h1"
+              }
+            },
+            {
+              "tipo": "divider",
+              "orden": 2,
+              "visible": true,
+              "configuracion": {
+                "style": "solid",
+                "spacing": "medium"
+              }
+            },
+            {
+              "tipo": "title",
+              "orden": 3,
+              "visible": true,
+              "configuracion": {
+                "title": "Nuevo Título",
+                "subtitle": "Subtítulo de la sección",
+                "level": "h2"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

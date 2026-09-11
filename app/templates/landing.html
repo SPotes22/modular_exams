@@ -1,0 +1,677 @@
+{% extends 'base.html' %}
+{% block title %}MyTraining | Exámenes y capacitación en tiempo real{% endblock %}
+
+{% block head %}
+<style>
+    /* =========================================================
+       LANDING PAGE
+       ========================================================= */
+
+    .lp-hero {
+        background: linear-gradient(180deg, #eef2ff 0%, var(--background) 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 3.5rem 2.5rem;
+        overflow: hidden;
+    }
+
+    .lp-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #eff6ff;
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 0.78rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        padding: 0.4rem 0.85rem;
+        border-radius: 999px;
+        border: 1px solid #dbeafe;
+    }
+
+    .lp-hero h1 {
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        font-size: clamp(1.9rem, 3.2vw, 2.75rem);
+        line-height: 1.15;
+    }
+
+    .lp-hero .lp-highlight {
+        color: var(--primary);
+    }
+
+    .lp-hero p.lead {
+        color: var(--muted);
+        font-size: 1.05rem;
+        max-width: 46ch;
+    }
+
+    .lp-section {
+        padding: 4.5rem 0;
+    }
+
+    .lp-section-title {
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        font-size: clamp(1.5rem, 2.2vw, 2rem);
+    }
+
+    .lp-feature-text p {
+        color: var(--muted);
+    }
+
+    .lp-mock {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        padding: 1.5rem;
+    }
+
+    .lp-mock-dark {
+        background: #0f172a;
+        border-radius: var(--radius-lg);
+        padding: 1.75rem;
+    }
+
+    .lp-live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+        display: inline-block;
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+    }
+
+    .lp-room-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .lp-room-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .lp-usecase-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1.6rem;
+        height: 100%;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .lp-usecase-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .lp-usecase-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        background: #eff6ff;
+        color: var(--primary);
+    }
+
+    .lp-cta-banner {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border-radius: var(--radius-lg);
+        padding: 3rem 2rem;
+        color: #ffffff;
+        text-align: center;
+    }
+
+    /* ---------------------------------------------------------
+       PRIVACY / DATA CARD
+       --------------------------------------------------------- */
+
+    .lp-privacy-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1.75rem;
+        height: 100%;
+    }
+
+    .lp-privacy-card ul {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+    }
+
+    .lp-privacy-card li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        font-size: 0.9rem;
+        color: var(--muted);
+        margin-bottom: 0.65rem;
+    }
+
+    .lp-privacy-card li:last-child {
+        margin-bottom: 0;
+    }
+
+    .lp-privacy-card li i {
+        margin-top: 0.2rem;
+        flex-shrink: 0;
+    }
+
+    .lp-privacy-yes li i {
+        color: var(--success);
+    }
+
+    .lp-privacy-no li i {
+        color: var(--danger);
+    }
+
+    /* ---------------------------------------------------------
+       FOOTER
+       --------------------------------------------------------- */
+
+    .lp-footer {
+        border-top: 1px solid var(--border);
+        padding: 2.5rem 0 1.5rem;
+        color: var(--muted);
+        font-size: 0.88rem;
+    }
+
+    .lp-footer a {
+        color: var(--muted);
+    }
+
+    .lp-footer a:hover {
+        color: var(--primary);
+    }
+
+    .lp-footer-heading {
+        color: var(--text);
+        font-weight: 700;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 0.9rem;
+    }
+
+    .lp-footer-links {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .lp-footer-links li {
+        margin-bottom: 0.55rem;
+    }
+
+    .lp-footer-social a {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 0.5rem;
+    }
+
+    .lp-footer-social a:hover {
+        color: var(--primary);
+        border-color: var(--primary);
+    }
+
+    @media (max-width: 991.98px) {
+        .lp-hero {
+            padding: 2.25rem 1.5rem;
+            text-align: center;
+        }
+
+        .lp-hero p.lead {
+            max-width: none;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .lp-section {
+            padding: 3rem 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- =========================================================
+     HERO
+     ========================================================= -->
+<section class="lp-hero mb-3">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+            <span class="lp-eyebrow mb-3 d-inline-flex">
+                <i class="bi bi-lightning-charge-fill"></i>
+                Evaluación y capacitación en tiempo real
+            </span>
+
+            <h1 class="mt-3 mb-3">
+                Detecta al instante los <span class="lp-highlight">vacíos de aprendizaje</span> de tus estudiantes
+            </h1>
+
+            <p class="lead mb-4">
+                Crea bancos de preguntas, arma exámenes y capacitaciones, y lánzalos en salas en vivo.
+                MyTraining corrige automáticamente, sincroniza el progreso en tiempo real y te devuelve
+                el tiempo que antes perdías revisando uno por uno.
+            </p>
+
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <a href="{{ url_for('auth.register') }}" class="btn btn-brand px-4 py-2 rounded-pill shadow-sm fw-bold">
+                    <i class="bi bi-person-plus me-1"></i> Crear cuenta gratis
+                </a>
+                <a href="{{ url_for('auth.student_join_exam') }}" class="btn btn-outline-secondary px-4 py-2 rounded-pill fw-bold" style="border-color: var(--border); color: var(--text);">
+                    <i class="bi bi-key me-1"></i> Ingresar con código
+                </a>
+            </div>
+
+            <p class="small text-muted mb-0">
+                ¿Ya tienes cuenta? <a href="{{ url_for('auth.login') }}" class="fw-semibold">Inicia sesión</a>
+            </p>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="lp-mock-dark">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge bg-primary font-monospace px-2 py-1" style="letter-spacing: 1px;">
+                        <i class="bi bi-hash"></i>A1B2C3
+                    </span>
+                    <span class="d-inline-flex align-items-center gap-2 text-success small fw-semibold">
+                        <span class="lp-live-dot"></span> En vivo
+                    </span>
+                </div>
+
+                <div class="lp-room-row">
+                    <div class="text-white-50 small">
+                        <div class="text-white fw-semibold">Quiz de Fotosíntesis</div>
+                        Pregunta 4 de 10
+                    </div>
+                    <span class="badge bg-success-subtle text-success rounded-pill px-2 py-1">
+                        <i class="bi bi-people-fill me-1"></i>27
+                    </span>
+                </div>
+
+                <div class="lp-room-row">
+                    <div class="text-white-50 small">
+                        <div class="text-white fw-semibold">Capacitación: Seguridad</div>
+                        Autoevaluación en curso
+                    </div>
+                    <span class="badge bg-warning-subtle text-warning rounded-pill px-2 py-1">
+                        <i class="bi bi-people-fill me-1"></i>12
+                    </span>
+                </div>
+
+                <div class="text-center text-white-50 small mt-3">
+                    <strong class="text-white">39</strong> estudiantes conectados ahora mismo
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     FEATURE 1 — SALAS EN TIEMPO REAL
+     ========================================================= -->
+<section class="lp-section">
+    <div class="row align-items-center g-5">
+        <div class="col-lg-6 lp-feature-text">
+            <h2 class="lp-section-title mb-3">Salas en tiempo real, control total</h2>
+            <p>
+                Inicia, pausa y reanuda una evaluación con un clic. Cada sala se sincroniza por
+                Socket.IO, así que puedes ver cuántos estudiantes están conectados, en qué sala y
+                con qué estado, sin recargar la página.
+            </p>
+            <p class="mb-0">
+                Ideal para exámenes presenciales, encuestas en vivo o capacitaciones grupales donde
+                necesitas reaccionar al momento.
+            </p>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="lp-mock">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-broadcast text-success me-1"></i> Salas activas</h6>
+                    <span class="badge bg-success rounded-pill px-2">39 conectados</span>
+                </div>
+                <div class="list-group list-group-flush gap-2">
+                    <div class="border rounded-3 p-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-primary font-monospace">A1B2C3</span>
+                            <span class="badge bg-success-subtle text-success ms-1">En vivo</span>
+                        </div>
+                        <span class="small fw-semibold text-muted"><i class="bi bi-people-fill text-primary me-1"></i>27</span>
+                    </div>
+                    <div class="border rounded-3 p-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-primary font-monospace">Q9K2L1</span>
+                            <span class="badge bg-warning-subtle text-warning ms-1">Pausada</span>
+                        </div>
+                        <span class="small fw-semibold text-muted"><i class="bi bi-people-fill text-primary me-1"></i>12</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     FEATURE 2 — CORRECCIÓN AUTOMÁTICA
+     ========================================================= -->
+<section class="lp-section pt-0">
+    <div class="row align-items-center g-5 flex-lg-row-reverse">
+        <div class="col-lg-6 lp-feature-text">
+            <h2 class="lp-section-title mb-3">Corrección automática para cada tipo de pregunta</h2>
+            <p>
+                Selección múltiple, selección múltiple de varias respuestas, verdadero/falso,
+                respuesta abierta, emparejamiento y ordenamiento: cada pregunta se califica sola
+                con el puntaje que definas por examen.
+            </p>
+            <p class="mb-0">
+                Así identificas de inmediato quién domina el tema y quién necesita refuerzo,
+                sin revisar respuesta por respuesta.
+            </p>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="lp-mock">
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <span class="badge-type badge-multiple_choice">Selección múltiple</span>
+                    <span class="badge-type badge-multiple_select">Varias respuestas</span>
+                    <span class="badge-type badge-true_false">Verdadero/Falso</span>
+                    <span class="badge-type badge-open_answer">Respuesta abierta</span>
+                    <span class="badge-type badge-matching">Emparejamiento</span>
+                    <span class="badge-type badge-ordering">Ordenamiento</span>
+                </div>
+                <div class="border rounded-3 p-3" style="background: #f0fdf4; border-color: #bbf7d0 !important;">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                        <span class="fw-bold small">Respuesta correcta</span>
+                    </div>
+                    <p class="small text-muted mb-0">
+                        El puntaje se asigna automáticamente según lo configurado para esta pregunta en el examen.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     FEATURE 3 — REPORTES Y EXPORTACIONES
+     ========================================================= -->
+<section class="lp-section pt-0">
+    <div class="row align-items-center g-5">
+        <div class="col-lg-6 lp-feature-text">
+            <h2 class="lp-section-title mb-3">Reportes y exportaciones flexibles</h2>
+            <p>
+                Descarga resultados completos en Excel, genera PDFs individuales por estudiante o
+                exporta el examen imprimible con o sin respuestas — listo para archivo o para revisión
+                académica.
+            </p>
+            <p class="mb-0">
+                Filtra resultados por asignatura y consulta el historial completo de presentaciones
+                cuando lo necesites.
+            </p>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="lp-mock d-flex flex-column gap-2">
+                <div class="d-flex justify-content-between align-items-center border rounded-3 p-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="stat-icon" style="width:36px;height:36px;background:#dcfce7;color:#16a34a;"><i class="bi bi-file-earmark-excel"></i></span>
+                        <span class="small fw-semibold">Resultados completos (Excel)</span>
+                    </div>
+                    <i class="bi bi-download text-muted"></i>
+                </div>
+                <div class="d-flex justify-content-between align-items-center border rounded-3 p-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="stat-icon" style="width:36px;height:36px;background:#fee2e2;color:#dc2626;"><i class="bi bi-file-earmark-pdf"></i></span>
+                        <span class="small fw-semibold">Examen con respuestas (PDF)</span>
+                    </div>
+                    <i class="bi bi-download text-muted"></i>
+                </div>
+                <div class="d-flex justify-content-between align-items-center border rounded-3 p-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="stat-icon" style="width:36px;height:36px;background:#dbeafe;color:#2563eb;"><i class="bi bi-file-earmark-text"></i></span>
+                        <span class="small fw-semibold">Examen sin respuestas (PDF)</span>
+                    </div>
+                    <i class="bi bi-download text-muted"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     FEATURE 4 — CAPACITACIONES DE REFUERZO
+     ========================================================= -->
+<section class="lp-section pt-0">
+    <div class="row align-items-center g-5 flex-lg-row-reverse">
+        <div class="col-lg-6 lp-feature-text">
+            <h2 class="lp-section-title mb-3">Capacitaciones de refuerzo, generadas solas</h2>
+            <p>
+                Cuando un estudiante falla una pregunta, MyTraining arma automáticamente una
+                capacitación de refuerzo enfocada en ese tema, para que practique antes de
+                volver a intentarlo.
+            </p>
+            <p class="mb-0">
+                Menos trabajo manual para el docente, más práctica dirigida para quien la necesita.
+            </p>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="lp-mock">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="stat-icon" style="background:#f3e8ff;color:#7c3aed;"><i class="bi bi-collection"></i></span>
+                    <div>
+                        <div class="fw-bold small">Refuerzo: Ecuaciones de segundo grado</div>
+                        <div class="text-muted small">Generada automáticamente tras el examen</div>
+                    </div>
+                </div>
+                <div class="progress mb-2" style="height: 8px; border-radius: 999px;">
+                    <div class="progress-bar bg-primary" style="width: 65%; border-radius: 999px;"></div>
+                </div>
+                <div class="d-flex justify-content-between small text-muted">
+                    <span>3 de 5 conceptos reforzados</span>
+                    <span>65%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     USE CASES
+     ========================================================= -->
+<section class="lp-section pt-0">
+    <h2 class="lp-section-title mb-4">Un solo lugar para enseñar, evaluar y reforzar</h2>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="lp-usecase-card">
+                <span class="lp-usecase-icon mb-3"><i class="bi bi-broadcast"></i></span>
+                <h6 class="fw-bold mb-2">Exámenes en vivo</h6>
+                <p class="text-muted small mb-0">
+                    Lanza salas en tiempo real, controla el ritmo con pausar/reanudar y sigue el
+                    avance pregunta por pregunta.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="lp-usecase-card">
+                <span class="lp-usecase-icon mb-3"><i class="bi bi-clipboard-check"></i></span>
+                <h6 class="fw-bold mb-2">Evaluación y calificación</h6>
+                <p class="text-muted small mb-0">
+                    Desde quices formativos hasta exámenes sumativos, con intentos múltiples
+                    configurables por evaluación.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="lp-usecase-card">
+                <span class="lp-usecase-icon mb-3"><i class="bi bi-arrow-repeat"></i></span>
+                <h6 class="fw-bold mb-2">Práctica y repaso</h6>
+                <p class="text-muted small mb-0">
+                    Asigna capacitaciones de refuerzo generadas automáticamente según los errores
+                    de cada estudiante.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="lp-usecase-card">
+                <span class="lp-usecase-icon mb-3"><i class="bi bi-people"></i></span>
+                <h6 class="fw-bold mb-2">Clases y seguimiento</h6>
+                <p class="text-muted small mb-0">
+                    Organiza exámenes por clase, revisa el historial de presentaciones y filtra
+                    resultados por asignatura.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     PRIVACIDAD Y DATOS
+     ========================================================= -->
+<section class="lp-section pt-0" id="privacidad">
+    <div class="mb-4">
+        <h2 class="lp-section-title mb-2">Tu información, con reglas claras</h2>
+        <p class="text-muted mb-0" style="max-width: 62ch;">
+            MyTraining es gratuito: no cobramos suscripciones ni planes pagos, así que no procesamos
+            pagos ni tarjetas de nadie. Guardamos solo lo necesario para que exámenes y
+            capacitaciones funcionen.
+        </p>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="lp-privacy-card">
+                <h6 class="fw-bold mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i>Qué guardamos</h6>
+                <ul class="lp-privacy-yes">
+                    <li><i class="bi bi-check-lg"></i> Tu nombre, usuario y correo, para identificarte al iniciar sesión.</li>
+                    <li><i class="bi bi-check-lg"></i> Tu contraseña, siempre cifrada — nunca la guardamos en texto plano.</li>
+                    <li><i class="bi bi-check-lg"></i> Las respuestas y el puntaje que envías en cada examen o capacitación.</li>
+                    <li><i class="bi bi-check-lg"></i> El historial de exámenes presentados, por clase y por estudiante.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="lp-privacy-card">
+                <h6 class="fw-bold mb-3"><i class="bi bi-x-circle-fill text-danger me-2"></i>Qué NO guardamos</h6>
+                <ul class="lp-privacy-no">
+                    <li><i class="bi bi-x-lg"></i> Datos de pago o tarjetas — no cobramos, así que no los pedimos.</li>
+                    <li><i class="bi bi-x-lg"></i> Contraseñas de otras plataformas (Google u otras cuentas).</li>
+                    <li><i class="bi bi-x-lg"></i> Publicidad ni venta de tu información a terceros.</li>
+                    <li><i class="bi bi-x-lg"></i> Rastreo con cookies de analítica o publicidad externa.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     CTA BANNER
+     ========================================================= -->
+<section class="lp-section pt-0">
+    <div class="lp-cta-banner">
+        <h2 class="fw-bold mb-2" style="letter-spacing: -0.02em;">Lleva tus evaluaciones al siguiente nivel</h2>
+        <p class="mb-4" style="opacity: 0.9; max-width: 56ch; margin-left: auto; margin-right: auto;">
+            Crea tu banco de preguntas, arma exámenes y capacitaciones, y compártelos con un simple
+            código de sala.
+        </p>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-light px-4 py-2 rounded-pill fw-bold shadow-sm">
+            Crear cuenta gratis
+        </a>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     FOOTER
+     ========================================================= -->
+<footer class="lp-footer">
+    <div class="row gy-4">
+        <div class="col-lg-4 col-md-12">
+            <span class="brand">
+                <span class="brand-mark"><i class="bi bi-lightning-charge-fill"></i></span>
+                MyTraining
+            </span>
+            <p class="mt-2 mb-0 small" style="max-width: 32ch;">
+                Exámenes y capacitación en tiempo real, con corrección automática. Gratuito, sin
+                planes pagos.
+            </p>
+        </div>
+
+        <div class="col-lg-2 col-6 col-md-3">
+            <div class="lp-footer-heading">Compañía</div>
+            <ul class="lp-footer-links">
+                <li><a href="#">Sobre nosotros</a></li>
+                <li><a href="#privacidad">Política de privacidad</a></li>
+                <li><a href="#">Términos y condiciones</a></li>
+                <li><a href="#">Declaración de accesibilidad</a></li>
+            </ul>
+        </div>
+
+        <div class="col-lg-2 col-6 col-md-3">
+            <div class="lp-footer-heading">Recursos</div>
+            <ul class="lp-footer-links">
+                <li><a href="#">Centro de ayuda</a></li>
+                <li><a href="#">Novedades</a></li>
+            </ul>
+        </div>
+
+        <div class="col-lg-2 col-6 col-md-3">
+            <div class="lp-footer-heading">Contacto</div>
+            <ul class="lp-footer-links">
+                <li><a href="#">Contáctanos</a></li>
+                <li><a href="#">Solicitar una función</a></li>
+            </ul>
+        </div>
+
+        <div class="col-lg-2 col-6 col-md-3">
+            <div class="lp-footer-heading">Cuenta</div>
+            <ul class="lp-footer-links">
+                <li><a href="{{ url_for('auth.login') }}">Iniciar sesión</a></li>
+                <li><a href="{{ url_for('auth.register') }}">Crear cuenta</a></li>
+                <li><a href="{{ url_for('auth.student_join_exam') }}">Ingresar con código</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 border-top" style="border-color: var(--border) !important;">
+        <div class="small">
+            &copy; {{ current_year }} MyTraining. Todos los derechos reservados.
+        </div>
+        <div class="lp-footer-social mt-2 mt-sm-0">
+            <a href="#" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+            <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+            <a href="#" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+        </div>
+    </div>
+</footer>
+
+{% endblock %}
