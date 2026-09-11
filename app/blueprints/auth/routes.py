@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
@@ -14,7 +15,7 @@ def home():
             endpoint = {'questions': 'questions.mis_preguntas', 'exams': 'exams.library', 'classes': 'exams.classes', 'learning': 'learning.instructor_dashboard'}.get(view, 'exams.instructor_dashboard')
             return redirect(url_for(endpoint))
         return redirect(url_for('learning.student_catalog'))
-    return render_template('login.html')
+    return render_template('landing.html', current_year=datetime.utcnow().year)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
