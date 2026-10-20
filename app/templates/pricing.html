@@ -1,0 +1,465 @@
+{% extends 'base.html' %}
+{% block title %}Planes | MyTraining{% endblock %}
+
+{% block head %}
+<style>
+    /* =========================================================
+       PRICING
+       ========================================================= */
+
+    .pr-wrap {
+        --pr-bg: #161a26;
+        --pr-card: #1d2131;
+        --pr-border: #343a52;
+        --pr-text: #f1f3f9;
+        --pr-muted: #a3aac0;
+        --pr-accent: #b3a9ff;
+        --pr-accent-strong: #9d90ff;
+
+        background: var(--pr-bg);
+        color: var(--pr-text);
+        border-radius: var(--radius-lg);
+        padding: 3.5rem 2.5rem 2.5rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .pr-eyebrow {
+        color: var(--pr-accent);
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+    }
+
+    .pr-title {
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-size: clamp(1.8rem, 3vw, 2.4rem);
+        line-height: 1.2;
+    }
+
+    .pr-subtitle {
+        color: var(--pr-muted);
+        max-width: 48ch;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .pr-trial {
+        background: #2a2747;
+        border-radius: var(--radius-md);
+        padding: 1rem 1.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem 0.75rem;
+    }
+
+    .pr-trial i {
+        color: var(--pr-accent);
+    }
+
+    .pr-trial small {
+        color: var(--pr-muted);
+    }
+
+    .pr-card {
+        background: var(--pr-card);
+        border: 1px solid var(--pr-border);
+        border-radius: var(--radius-lg);
+        padding: 1.75rem 1.5rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .pr-card.is-featured {
+        border: 2px solid var(--pr-accent);
+    }
+
+    .pr-tag {
+        color: var(--pr-accent);
+        font-size: 0.74rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .pr-card h2 {
+        font-size: 1.6rem;
+        font-weight: 600;
+        margin: 0.4rem 0 0.3rem;
+    }
+
+    .pr-card .pr-desc,
+    .pr-card .pr-note {
+        color: var(--pr-muted);
+        font-size: 0.88rem;
+    }
+
+    .pr-price {
+        font-size: 2.4rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1;
+    }
+
+    .pr-price small {
+        font-size: 0.85rem;
+        font-weight: 400;
+        color: var(--pr-muted);
+        letter-spacing: 0;
+    }
+
+    .pr-btn {
+        display: block;
+        text-align: center;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .pr-btn-outline {
+        border: 1px solid #c9cde0;
+        color: var(--pr-accent);
+    }
+
+    .pr-btn-outline:hover {
+        background: rgba(179, 169, 255, 0.1);
+        color: var(--pr-accent);
+    }
+
+    .pr-btn-solid {
+        background: var(--pr-accent);
+        color: #161a26;
+    }
+
+    .pr-btn-solid:hover {
+        background: var(--pr-accent-strong);
+        color: #161a26;
+    }
+
+    .pr-divider {
+        border-top: 1px solid var(--pr-border);
+        margin: 1.5rem 0;
+    }
+
+    .pr-features {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .pr-features li {
+        display: flex;
+        gap: 0.75rem;
+        font-size: 0.92rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .pr-features li:last-child {
+        margin-bottom: 0;
+    }
+
+    .pr-features li i {
+        color: var(--pr-accent);
+        flex-shrink: 0;
+    }
+
+    .pr-footnote {
+        color: var(--pr-muted);
+        font-size: 0.82rem;
+    }
+
+    .pr-footnote a {
+        color: var(--pr-accent);
+    }
+
+    /* ---------------------------------------------------------
+       COMPARISON + FAQ (light area)
+       --------------------------------------------------------- */
+
+    .pr-section-title {
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        font-size: clamp(1.4rem, 2vw, 1.8rem);
+    }
+
+    .pr-table {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    .pr-table table {
+        margin: 0;
+    }
+
+    .pr-table th,
+    .pr-table td {
+        padding: 0.85rem 1rem;
+        vertical-align: middle;
+    }
+
+    .pr-table thead th {
+        background: #f8fafc;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+    }
+
+    .pr-faq .accordion-item {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md) !important;
+        overflow: hidden;
+        margin-bottom: 0.6rem;
+    }
+
+    .pr-faq .accordion-button {
+        font-weight: 600;
+    }
+
+    .pr-faq .accordion-button:not(.collapsed) {
+        background: #eff6ff;
+        color: var(--primary);
+        box-shadow: none;
+    }
+
+    @media (max-width: 767.98px) {
+        .pr-wrap {
+            padding: 2.25rem 1rem 1.75rem;
+            border-radius: var(--radius-md);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% set plans = [
+    {
+        'tag': 'Para enseñar por tu cuenta',
+        'name': 'Instructores',
+        'desc': 'Para profes y capacitadores que gestionan sus propios grupos.',
+        'price': '49.000',
+        'featured': False,
+        'features': [
+            '1 instructor',
+            'Hasta 20 participantes por sala',
+            'Hasta 6 salas simultáneas',
+            'Banco de preguntas e importación',
+            'Videos con preguntas interactivas',
+            'Calificación automática e historial',
+        ],
+    },
+    {
+        'tag': 'Para enseñar en equipo',
+        'name': 'Academias',
+        'desc': 'Para pequeños equipos que capacitan a más personas.',
+        'price': '129.000',
+        'featured': True,
+        'features': [
+            'Hasta 3 instructores',
+            'Hasta 80 participantes por sala',
+            'Hasta 6 salas simultáneas',
+            'Todas las funciones de Instructores',
+            'Sesión inicial de orientación',
+            'Soporte por correo',
+        ],
+    },
+] %}
+
+<!-- =========================================================
+     PLANES
+     ========================================================= -->
+<section class="pr-wrap mb-5">
+    <div class="text-center mb-4">
+        <div class="pr-eyebrow mb-3">Planes mensuales</div>
+        <h1 class="pr-title mb-3">Tu próxima capacitación<br>empieza aquí.</h1>
+        <p class="pr-subtitle mb-0">
+            Videos, preguntas y resultados en un mismo lugar.
+            Elige el plan que se ajuste a tu forma de enseñar.
+        </p>
+    </div>
+
+    <div class="pr-trial mb-4">
+        <i class="bi bi-stars"></i>
+        <strong>Prueba gratis durante 14 días</strong>
+        <small>Sin tarjeta · Hasta 10 participantes</small>
+    </div>
+
+    <div class="row g-4">
+        {% for plan in plans %}
+        <div class="col-md-6">
+            <article class="pr-card {% if plan.featured %}is-featured{% endif %}">
+                <div class="pr-tag">{{ plan.tag }}</div>
+                <h2>{{ plan.name }}</h2>
+                <p class="pr-desc mb-4">{{ plan.desc }}</p>
+
+                <div class="pr-price mb-2">${{ plan.price }} <small>COP / mes</small></div>
+                <p class="pr-note mb-4">Pago mensual. Sin compromiso anual.</p>
+
+                <a href="{{ url_for('auth.register') }}"
+                   class="pr-btn {% if plan.featured %}pr-btn-solid{% else %}pr-btn-outline{% endif %}">
+                    Probar gratis 14 días
+                </a>
+                <p class="pr-note text-center small mt-2 mb-0">
+                    Después de la prueba: ${{ plan.price }} COP al mes.
+                </p>
+
+                <div class="pr-divider"></div>
+
+                <ul class="pr-features">
+                    {% for feature in plan.features %}
+                    <li><i class="bi bi-check2"></i> {{ feature }}</li>
+                    {% endfor %}
+                </ul>
+            </article>
+        </div>
+        {% endfor %}
+    </div>
+
+    <p class="pr-footnote text-center mt-4 mb-0">
+        Ambos planes incluyen videos enlazados desde YouTube o Vimeo.
+        Al suscribirte aceptas los <a href="{{ url_for('auth.terms') }}">Términos y condiciones</a>.
+    </p>
+</section>
+
+
+<!-- =========================================================
+     COMPARATIVA
+     ========================================================= -->
+<section class="mb-5">
+    <h2 class="pr-section-title mb-3">Compara los planes</h2>
+    <div class="pr-table table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Característica</th>
+                    <th class="text-center">Prueba gratis</th>
+                    <th class="text-center">Instructores</th>
+                    <th class="text-center">Academias</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Instructores</td>
+                    <td class="text-center">1</td>
+                    <td class="text-center">1</td>
+                    <td class="text-center fw-semibold">3</td>
+                </tr>
+                <tr>
+                    <td>Participantes por sala</td>
+                    <td class="text-center">10</td>
+                    <td class="text-center">20</td>
+                    <td class="text-center fw-semibold">80</td>
+                </tr>
+                <tr>
+                    <td>Salas simultáneas</td>
+                    <td class="text-center">1</td>
+                    <td class="text-center">6</td>
+                    <td class="text-center">6</td>
+                </tr>
+                <tr>
+                    <td>Banco de preguntas e importación</td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                </tr>
+                <tr>
+                    <td>Calificación automática y reportes</td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                </tr>
+                <tr>
+                    <td>Capacitaciones de refuerzo automáticas</td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                </tr>
+                <tr>
+                    <td>Sesión inicial de orientación</td>
+                    <td class="text-center"><i class="bi bi-dash text-muted"></i></td>
+                    <td class="text-center"><i class="bi bi-dash text-muted"></i></td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                </tr>
+                <tr>
+                    <td>Soporte por correo</td>
+                    <td class="text-center"><i class="bi bi-dash text-muted"></i></td>
+                    <td class="text-center"><i class="bi bi-dash text-muted"></i></td>
+                    <td class="text-center"><i class="bi bi-check-lg text-success"></i></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     PREGUNTAS FRECUENTES
+     ========================================================= -->
+<section class="mb-4">
+    <h2 class="pr-section-title mb-3">Preguntas frecuentes</h2>
+    <div class="accordion pr-faq" id="pricingFaq">
+        <div class="accordion-item">
+            <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                    ¿Qué pasa cuando termina la prueba gratis?
+                </button>
+            </h3>
+            <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+                <div class="accordion-body text-muted">
+                    Te avisamos antes de que termine. Si no eliges un plan, tu cuenta queda en modo
+                    lectura: conservas tus preguntas y resultados, pero no puedes abrir salas nuevas.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                    ¿Qué cuenta como “participante por sala”?
+                </button>
+            </h3>
+            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+                <div class="accordion-body text-muted">
+                    Es el número máximo de estudiantes conectados al mismo tiempo en una sala en vivo.
+                    Con el plan Instructores son 20 por sala y con Academias 80, en hasta 6 salas abiertas a la vez.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                    ¿Puedo cambiar de plan o cancelar?
+                </button>
+            </h3>
+            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+                <div class="accordion-body text-muted">
+                    Sí. Puedes subir o bajar de plan cuando quieras y cancelar en cualquier momento;
+                    el plan sigue activo hasta el final del mes ya pagado.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                    ¿Los estudiantes tienen que pagar?
+                </button>
+            </h3>
+            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+                <div class="accordion-body text-muted">
+                    No. Solo paga quien crea y dirige las capacitaciones. Los estudiantes entran gratis
+                    con el código de la sala.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

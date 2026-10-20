@@ -710,12 +710,12 @@
             <!-- Brand -->
             <a
                 class="navbar-brand brand"
-                href="{{ url_for('exams.instructor_dashboard') }}"
+                href="{{ url_for('auth.landing') }}"
             >
                 <span class="brand-mark">
                     <i class="bi bi-lightning-charge-fill"></i>
                 </span>
-
+                MyTraining
             </a>
 
 
@@ -933,6 +933,14 @@
                     {% else %}
 
                         <!-- Guest Navigation Links -->
+                        <a
+                            class="nav-link app-nav-link"
+                            href="{{ url_for('auth.pricing') }}"
+                        >
+                            <i class="bi bi-tags me-1"></i>
+                            Planes
+                        </a>
+
                         <a
                             class="nav-link app-nav-link"
                             href="{{ url_for('auth.student_join_exam') }}"

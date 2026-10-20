@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% block title %}Términos y condiciones | MyTraining{% endblock %}
+
+{% block head %}
+<style>
+    /* =========================================================
+       TERMS
+       ========================================================= */
+
+    .tc-layout {
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr);
+        gap: 2rem;
+        align-items: start;
+    }
+
+    .tc-toc {
+        position: sticky;
+        top: 1.5rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+        font-size: 0.88rem;
+    }
+
+    .tc-toc ol {
+        padding-left: 1.1rem;
+        margin: 0;
+    }
+
+    .tc-toc li {
+        margin-bottom: 0.45rem;
+    }
+
+    .tc-toc a {
+        color: var(--muted);
+        text-decoration: none;
+    }
+
+    .tc-toc a:hover {
+        color: var(--primary);
+    }
+
+    .tc-doc {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2.5rem;
+    }
+
+    .tc-doc h1 {
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        font-size: clamp(1.7rem, 2.6vw, 2.2rem);
+    }
+
+    .tc-doc h2 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        scroll-margin-top: 1.5rem;
+    }
+
+    .tc-doc p,
+    .tc-doc li {
+        color: #334155;
+        line-height: 1.65;
+    }
+
+    .tc-meta {
+        color: var(--muted);
+        font-size: 0.88rem;
+    }
+
+    @media (max-width: 991.98px) {
+        .tc-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .tc-toc {
+            position: static;
+        }
+
+        .tc-doc {
+            padding: 1.5rem 1.1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="tc-layout mb-4">
+    <nav class="tc-toc" aria-label="Contenido">
+        <div class="fw-bold mb-2">Contenido</div>
+        <ol>
+            <li><a href="#aceptacion">Aceptación</a></li>
+            <li><a href="#servicio">El servicio</a></li>
+            <li><a href="#cuentas">Cuentas y acceso</a></li>
+            <li><a href="#planes">Planes, pagos y prueba</a></li>
+            <li><a href="#limites">Límites de uso</a></li>
+            <li><a href="#contenido">Contenido del usuario</a></li>
+            <li><a href="#uso">Uso aceptable</a></li>
+            <li><a href="#datos">Datos personales</a></li>
+            <li><a href="#cancelacion">Cancelación</a></li>
+            <li><a href="#responsabilidad">Responsabilidad</a></li>
+            <li><a href="#cambios">Cambios</a></li>
+            <li><a href="#contacto">Ley aplicable y contacto</a></li>
+        </ol>
+    </nav>
+
+    <article class="tc-doc">
+        <h1 class="mb-2">Términos y condiciones</h1>
+        <p class="tc-meta mb-4">Última actualización: 20 de octubre de 2026</p>
+
+        <p>
+            Estos términos regulan el uso de MyTraining, una plataforma para crear exámenes,
+            capacitaciones y salas de evaluación en tiempo real. Léelos con calma: al crear una
+            cuenta o usar el servicio aceptas lo que dicen.
+        </p>
+
+        <h2 id="aceptacion">1. Aceptación</h2>
+        <p>
+            Al registrarte, ingresar con un código de sala o usar cualquier parte de MyTraining
+            aceptas estos términos. Si usas la plataforma en nombre de una institución, declaras
+            que tienes autorización para aceptarlos en su nombre.
+        </p>
+
+        <h2 id="servicio">2. El servicio</h2>
+        <p>
+            MyTraining permite a instructores crear bancos de preguntas, armar exámenes y
+            capacitaciones, lanzarlos en salas en vivo y consultar resultados. Los estudiantes
+            participan con el código de la sala que les comparte el instructor. Podemos mejorar,
+            modificar o retirar funciones para mantener la plataforma funcionando bien.
+        </p>
+
+        <h2 id="cuentas">3. Cuentas y acceso</h2>
+        <ul>
+            <li>Debes dar información verdadera y mantenerla actualizada.</li>
+            <li>Eres responsable de guardar tu contraseña y de la actividad hecha desde tu cuenta.</li>
+            <li>Los menores de edad deben usar la plataforma con la autorización de sus padres o de la institución educativa.</li>
+        </ul>
+
+        <h2 id="planes">4. Planes, pagos y prueba gratis</h2>
+        <ul>
+            <li>Ofrecemos una prueba gratis de 14 días, sin tarjeta, con hasta 10 participantes.</li>
+            <li>
+                Los planes pagos (<a href="{{ url_for('auth.pricing') }}">Instructores y Academias</a>)
+                se cobran por mes, en pesos colombianos (COP), por anticipado y sin compromiso anual.
+            </li>
+            <li>Los pagos los procesa un proveedor externo. MyTraining no almacena datos de tarjetas.</li>
+            <li>Los precios pueden cambiar; te avisaremos con al menos 30 días de anticipación.</li>
+            <li>Los estudiantes que ingresan con código de sala no pagan.</li>
+        </ul>
+
+        <h2 id="limites">5. Límites de uso</h2>
+        <p>Cada plan tiene límites que aplican de forma simultánea:</p>
+        <ul>
+            <li><strong>Instructores:</strong> 1 instructor, hasta 20 participantes por sala y hasta 6 salas simultáneas.</li>
+            <li><strong>Academias:</strong> hasta 3 instructores, hasta 80 participantes por sala y hasta 6 salas simultáneas.</li>
+        </ul>
+        <p>
+            Si una sala alcanza su límite, los nuevos participantes no podrán unirse hasta que se
+            libere un cupo o se mejore el plan.
+        </p>
+
+        <h2 id="contenido">6. Contenido del usuario</h2>
+        <p>
+            Las preguntas, exámenes, capacitaciones y archivos que subes siguen siendo tuyos. Nos
+            das permiso para almacenarlos y mostrarlos únicamente con el fin de prestar el servicio.
+            Debes tener los derechos sobre lo que publicas, incluidos videos y documentos enlazados
+            desde servicios como YouTube o Vimeo.
+        </p>
+
+        <h2 id="uso">7. Uso aceptable</h2>
+        <p>No está permitido:</p>
+        <ul>
+            <li>Subir contenido ilegal, ofensivo o que infrinja derechos de terceros.</li>
+            <li>Intentar acceder a cuentas, salas o datos que no te pertenecen.</li>
+            <li>Sobrecargar, atacar o interferir con el funcionamiento de la plataforma.</li>
+            <li>Revender o compartir una cuenta para evadir los límites del plan.</li>
+        </ul>
+
+        <h2 id="datos">8. Datos personales</h2>
+        <p>
+            Tratamos los datos personales conforme a la Ley 1581 de 2012 y sus decretos
+            reglamentarios. Guardamos solo lo necesario para operar: nombre, usuario, correo,
+            contraseña cifrada y las respuestas y resultados de cada evaluación. No vendemos tu
+            información ni usamos cookies de publicidad. Puedes conocer, actualizar o pedir la
+            eliminación de tus datos escribiéndonos. Más detalle en la sección
+            <a href="{{ url_for('auth.landing') }}#privacidad">Tu información, con reglas claras</a>.
+        </p>
+
+        <h2 id="cancelacion">9. Cancelación</h2>
+        <p>
+            Puedes cancelar tu plan cuando quieras; seguirá activo hasta el final del periodo ya
+            pagado y no se hacen cobros adicionales. Podemos suspender cuentas que incumplan estos
+            términos. Tras la cancelación conservamos tus datos por 90 días para que puedas
+            exportarlos, y luego los eliminamos.
+        </p>
+
+        <h2 id="responsabilidad">10. Responsabilidad</h2>
+        <p>
+            Trabajamos para que MyTraining esté disponible y funcione correctamente, pero el
+            servicio se ofrece “tal como está”. No respondemos por interrupciones causadas por
+            terceros (conectividad, proveedores de hosting o de video) ni por las decisiones
+            académicas que se tomen con base en los resultados. Nada de lo anterior limita los
+            derechos que te da la Ley 1480 de 2011 (Estatuto del Consumidor).
+        </p>
+
+        <h2 id="cambios">11. Cambios a estos términos</h2>
+        <p>
+            Podemos actualizar estos términos. Si el cambio es importante, te avisaremos por correo
+            o dentro de la plataforma antes de que entre en vigor. Seguir usando el servicio
+            después de esa fecha significa que aceptas la nueva versión.
+        </p>
+
+        <h2 id="contacto">12. Ley aplicable y contacto</h2>
+        <p class="mb-0">
+            Estos términos se rigen por las leyes de la República de Colombia. Para preguntas,
+            solicitudes sobre tus datos o reclamos, escríbenos desde la sección de contacto de la
+            plataforma.
+        </p>
+    </article>
+</div>
+
+{% endblock %}

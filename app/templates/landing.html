@@ -274,17 +274,26 @@
             </p>
 
             <div class="d-flex flex-wrap gap-2 mb-3">
-                <a href="{{ url_for('auth.register') }}" class="btn btn-brand px-4 py-2 rounded-pill shadow-sm fw-bold">
-                    <i class="bi bi-person-plus me-1"></i> Crear cuenta gratis
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('auth.home') }}" class="btn btn-brand px-4 py-2 rounded-pill shadow-sm fw-bold">
+                    <i class="bi bi-grid me-1"></i> Ir a mi panel
                 </a>
+                {% else %}
+                <a href="{{ url_for('auth.register') }}" class="btn btn-brand px-4 py-2 rounded-pill shadow-sm fw-bold">
+                    <i class="bi bi-person-plus me-1"></i> Probar gratis 14 días
+                </a>
+                {% endif %}
                 <a href="{{ url_for('auth.student_join_exam') }}" class="btn btn-outline-secondary px-4 py-2 rounded-pill fw-bold" style="border-color: var(--border); color: var(--text);">
                     <i class="bi bi-key me-1"></i> Ingresar con código
                 </a>
             </div>
 
+            {% if not current_user.is_authenticated %}
             <p class="small text-muted mb-0">
                 ¿Ya tienes cuenta? <a href="{{ url_for('auth.login') }}" class="fw-semibold">Inicia sesión</a>
+                · <a href="{{ url_for('auth.pricing') }}" class="fw-semibold">Ver planes</a>
             </p>
+            {% endif %}
         </div>
 
         <div class="col-lg-5">
@@ -560,9 +569,8 @@
     <div class="mb-4">
         <h2 class="lp-section-title mb-2">Tu información, con reglas claras</h2>
         <p class="text-muted mb-0" style="max-width: 62ch;">
-            MyTraining es gratuito: no cobramos suscripciones ni planes pagos, así que no procesamos
-            pagos ni tarjetas de nadie. Guardamos solo lo necesario para que exámenes y
-            capacitaciones funcionen.
+            Guardamos solo lo necesario para que exámenes y capacitaciones funcionen. Los pagos de
+            las suscripciones los procesa un proveedor externo: nunca vemos ni guardamos tu tarjeta.
         </p>
     </div>
 
@@ -582,11 +590,44 @@
             <div class="lp-privacy-card">
                 <h6 class="fw-bold mb-3"><i class="bi bi-x-circle-fill text-danger me-2"></i>Qué NO guardamos</h6>
                 <ul class="lp-privacy-no">
-                    <li><i class="bi bi-x-lg"></i> Datos de pago o tarjetas — no cobramos, así que no los pedimos.</li>
+                    <li><i class="bi bi-x-lg"></i> Datos de tarjetas — el pago lo procesa un proveedor externo.</li>
                     <li><i class="bi bi-x-lg"></i> Contraseñas de otras plataformas (Google u otras cuentas).</li>
                     <li><i class="bi bi-x-lg"></i> Publicidad ni venta de tu información a terceros.</li>
                     <li><i class="bi bi-x-lg"></i> Rastreo con cookies de analítica o publicidad externa.</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     PLANES (TEASER)
+     ========================================================= -->
+<section class="lp-section pt-0" id="planes">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
+        <div>
+            <h2 class="lp-section-title mb-2">Planes para cada forma de enseñar</h2>
+            <p class="text-muted mb-0">Prueba gratis 14 días, sin tarjeta. Luego, pago mensual sin compromiso anual.</p>
+        </div>
+        <a href="{{ url_for('auth.pricing') }}" class="fw-semibold">Comparar planes <i class="bi bi-arrow-right"></i></a>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="lp-usecase-card">
+                <div class="small fw-bold text-uppercase text-muted mb-1" style="letter-spacing: 0.05em;">Para enseñar por tu cuenta</div>
+                <h5 class="fw-bold mb-2">Instructores</h5>
+                <div class="mb-3"><span class="fs-3 fw-bold">$49.000</span> <span class="text-muted small">COP / mes</span></div>
+                <p class="text-muted small mb-0">1 instructor · hasta 20 participantes por sala · hasta 6 salas simultáneas.</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="lp-usecase-card" style="border: 2px solid var(--primary);">
+                <div class="small fw-bold text-uppercase mb-1" style="letter-spacing: 0.05em; color: var(--primary);">Para enseñar en equipo</div>
+                <h5 class="fw-bold mb-2">Academias</h5>
+                <div class="mb-3"><span class="fs-3 fw-bold">$129.000</span> <span class="text-muted small">COP / mes</span></div>
+                <p class="text-muted small mb-0">Hasta 3 instructores · hasta 80 participantes por sala · hasta 6 salas simultáneas.</p>
             </div>
         </div>
     </div>
@@ -603,9 +644,14 @@
             Crea tu banco de preguntas, arma exámenes y capacitaciones, y compártelos con un simple
             código de sala.
         </p>
-        <a href="{{ url_for('auth.register') }}" class="btn btn-light px-4 py-2 rounded-pill fw-bold shadow-sm">
-            Crear cuenta gratis
-        </a>
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-light px-4 py-2 rounded-pill fw-bold shadow-sm">
+                Probar gratis 14 días
+            </a>
+            <a href="{{ url_for('auth.pricing') }}" class="btn btn-outline-light px-4 py-2 rounded-pill fw-bold">
+                Ver planes
+            </a>
+        </div>
     </div>
 </section>
 
@@ -621,8 +667,8 @@
                 MyTraining
             </span>
             <p class="mt-2 mb-0 small" style="max-width: 32ch;">
-                Exámenes y capacitación en tiempo real, con corrección automática. Gratuito, sin
-                planes pagos.
+                Exámenes y capacitación en tiempo real, con corrección automática. Planes desde
+                $49.000 COP al mes.
             </p>
         </div>
 
@@ -631,7 +677,7 @@
             <ul class="lp-footer-links">
                 <li><a href="#">Sobre nosotros</a></li>
                 <li><a href="#privacidad">Política de privacidad</a></li>
-                <li><a href="#">Términos y condiciones</a></li>
+                <li><a href="{{ url_for('auth.terms') }}">Términos y condiciones</a></li>
                 <li><a href="#">Declaración de accesibilidad</a></li>
             </ul>
         </div>
@@ -639,6 +685,7 @@
         <div class="col-lg-2 col-6 col-md-3">
             <div class="lp-footer-heading">Recursos</div>
             <ul class="lp-footer-links">
+                <li><a href="{{ url_for('auth.pricing') }}">Planes y precios</a></li>
                 <li><a href="#">Centro de ayuda</a></li>
                 <li><a href="#">Novedades</a></li>
             </ul>

@@ -6,6 +6,22 @@ from app.models import User, ExamSession, Bank
 from app.blueprints.auth import auth_bp
 
 @auth_bp.route('/')
+def root():
+    return redirect(url_for('auth.landing'))
+
+@auth_bp.route('/landing')
+def landing():
+    return render_template('landing.html', current_year=datetime.utcnow().year)
+
+@auth_bp.route('/planes')
+def pricing():
+    return render_template('pricing.html', current_year=datetime.utcnow().year)
+
+@auth_bp.route('/terminos')
+def terms():
+    return render_template('terms.html', current_year=datetime.utcnow().year)
+
+@auth_bp.route('/inicio')
 def home():
     if current_user.is_authenticated:
         if current_user.role in ['superuser', 'admin']:
@@ -15,7 +31,7 @@ def home():
             endpoint = {'questions': 'questions.mis_preguntas', 'exams': 'exams.library', 'classes': 'exams.classes', 'learning': 'learning.instructor_dashboard'}.get(view, 'exams.instructor_dashboard')
             return redirect(url_for(endpoint))
         return redirect(url_for('learning.student_catalog'))
-    return render_template('landing.html', current_year=datetime.utcnow().year)
+    return redirect(url_for('auth.landing'))
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
