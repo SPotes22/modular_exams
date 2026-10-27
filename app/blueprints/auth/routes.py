@@ -4,6 +4,9 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
 from app.models import User, ExamSession, Bank
 from app.blueprints.auth import auth_bp
+from app.realtime.manager import session_manager
+from app.services.billing import room_capacity_error
+from app.services.exam_content import normalize_room_code
 
 @auth_bp.route('/')
 def root():
@@ -112,7 +115,8 @@ def register():
             phone=phone,
             institution=institution,
             role=role,
-            default_exam_view='questions' if role == 'instructor' else 'catalog'
+            default_exam_view='questions' if role == 'instructor' else 'catalog',
+            trial_started_at=datetime.utcnow() if role == 'instructor' else None
         )
         new_user.set_password(password)
         db.session.add(new_user)
@@ -162,6 +166,13 @@ def student_join_exam():
 
         if session_obj.status in ['finished', 'FINISHED', 'closed', 'CLOSED']:
             flash('Esta sala ya finalizó.', 'danger')
+            return redirect(url_for('auth.student_join_exam'))
+
+        rt_session = session_manager.sessions.get(normalize_room_code(session_obj.session_code))
+        connected = sum(1 for st in rt_session.students.values() if st.connected) if rt_session else 0
+        full_reason = room_capacity_error(session_obj, connected)
+        if full_reason:
+            flash(full_reason, 'danger')
             return redirect(url_for('auth.student_join_exam'))
 
         user = User(username=student_name, role='student')

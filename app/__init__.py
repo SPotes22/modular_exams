@@ -53,12 +53,16 @@ def ensure_schema():
         _add_column_if_missing(conn, user_columns, 'users', 'last_name', "VARCHAR(80)")
         _add_column_if_missing(conn, user_columns, 'users', 'phone', "VARCHAR(30)")
         _add_column_if_missing(conn, user_columns, 'users', 'institution', "VARCHAR(150)")
+        _add_column_if_missing(conn, user_columns, 'users', 'plan', "VARCHAR(20) DEFAULT 'trial'")
+        _add_column_if_missing(conn, user_columns, 'users', 'trial_started_at', 'DATETIME')
+        _add_column_if_missing(conn, user_columns, 'users', 'plan_expires_at', 'DATETIME')
+        _add_column_if_missing(conn, user_columns, 'users', 'wallet_address', 'VARCHAR(64)')
         _add_column_if_missing(conn, learning_columns, 'learnings', 'source_session_id', 'INTEGER')
 
 def init_db():
     from app.models import (User, Bank, Question, QuestionOption, Exam, ExamQuestion,
         ExamClass, ExamGroup, Learning, LearningModule, Lesson, Block, LearningProgress,
-        BlockAnswer, SessionQuestionSnapshot, Poll, PollVote, LiveAnswer)
+        BlockAnswer, SessionQuestionSnapshot, Poll, PollVote, LiveAnswer, Payment)
     db.create_all()
     ensure_schema()
 
@@ -148,6 +152,7 @@ def create_app():
     from app.blueprints.admin import admin_bp
     from app.blueprints.learning import learning_bp
     from app.blueprints.polls import polls_bp
+    from app.blueprints.billing import billing_bp
     from app.realtime import sockets  # noqa: F401
     from app.blueprints.polls import sockets as poll_sockets  # noqa: F401
 
@@ -158,6 +163,16 @@ def create_app():
     app.register_blueprint(media_bp)
     app.register_blueprint(learning_bp)
     app.register_blueprint(polls_bp)
+    app.register_blueprint(billing_bp)
+
+    from app.services.billing import plan_status
+
+    @app.context_processor
+    def inject_plan_status():
+        from flask_login import current_user
+        if current_user.is_authenticated and current_user.role == 'instructor':
+            return {'plan_status': plan_status(current_user)}
+        return {'plan_status': None}
 
     return app
 

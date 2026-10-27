@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% block title %}Suscripción | MyTraining{% endblock %}
+
+{% block head %}
+<style>
+    .sb-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        height: 100%;
+    }
+
+    .sb-stat {
+        background: var(--background);
+        border-radius: var(--radius-md);
+        padding: 0.9rem 1rem;
+    }
+
+    .sb-stat .label {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 600;
+    }
+
+    .sb-stat .value {
+        font-size: 1.35rem;
+        font-weight: 700;
+    }
+
+    .sb-plan {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sb-plan.is-selected {
+        border: 2px solid var(--primary);
+    }
+
+    .sb-price {
+        font-size: 1.9rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+    }
+
+    .sb-avax {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+        border-radius: 999px;
+        padding: 0.25rem 0.7rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .sb-msg {
+        border-radius: var(--radius-sm);
+        font-size: 0.88rem;
+    }
+
+    .sb-steps {
+        color: var(--muted);
+        font-size: 0.88rem;
+        padding-left: 1.1rem;
+    }
+
+    .sb-steps li {
+        margin-bottom: 0.4rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1">Tu suscripción</h1>
+        <p class="text-muted mb-0">Paga con AVAX desde Core wallet en la red de pruebas Avalanche Fuji.</p>
+    </div>
+    <a href="{{ url_for('auth.pricing') }}" class="fw-semibold">Comparar planes <i class="bi bi-arrow-right"></i></a>
+</div>
+
+<!-- Estado actual -->
+<section class="sb-card mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h2 class="h5 fw-bold mb-0">
+            Plan actual: {{ status.name }}
+            {% if status.active %}
+                <span class="badge bg-success-subtle text-success ms-1">Activo</span>
+            {% else %}
+                <span class="badge bg-danger-subtle text-danger ms-1">Vencido</span>
+            {% endif %}
+        </h2>
+        {% if status.expires_at %}
+        <span class="text-muted small">
+            {% if status.active %}Vence{% else %}Venció{% endif %} el {{ status.expires_at.strftime('%d/%m/%Y') }}
+        </span>
+        {% endif %}
+    </div>
+    <div class="row g-3">
+        <div class="col-6 col-md-3">
+            <div class="sb-stat"><div class="label">Días restantes</div><div class="value">{{ status.days_left }}</div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="sb-stat"><div class="label">Salas en uso</div><div class="value">{{ rooms_in_use }} / {{ status.max_rooms }}</div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="sb-stat"><div class="label">Participantes por sala</div><div class="value">{{ status.max_participants }}</div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="sb-stat"><div class="label">Pagos registrados</div><div class="value">{{ payments|length }}</div></div>
+        </div>
+    </div>
+    {% if not status.active %}
+    <div class="alert alert-warning sb-msg mt-3 mb-0">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Tu cuenta está en modo lectura: conservas tus preguntas y resultados, pero no puedes abrir salas nuevas hasta elegir un plan.
+    </div>
+    {% endif %}
+</section>
+
+{% if not merchant %}
+<div class="alert alert-danger sb-msg mb-4">
+    <i class="bi bi-gear me-1"></i>
+    Los pagos con AVAX no están configurados: falta <code>AVAX_MERCHANT_ADDRESS</code> en el archivo <code>.env</code>.
+</div>
+{% endif %}
+
+<!-- Planes -->
+<div class="row g-3 mb-4">
+    {% for plan in plans %}
+    <div class="col-md-6">
+        <article class="sb-card sb-plan {% if selected_plan == plan.key %}is-selected{% endif %}">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h3 class="h5 fw-bold mb-0">{{ plan.name }}</h3>
+                {% if status.key == plan.key and status.active %}
+                <span class="badge bg-primary-subtle text-primary">Tu plan</span>
+                {% endif %}
+            </div>
+            <div class="sb-price mb-1">${{ plan.price_cop }} <span class="fs-6 fw-normal text-muted">COP / mes</span></div>
+            <div class="mb-3"><span class="sb-avax"><i class="bi bi-currency-exchange"></i> {{ plan.price_avax }} AVAX en Fuji</span></div>
+            <ul class="list-unstyled small text-muted mb-4">
+                <li class="mb-1"><i class="bi bi-check2 text-primary me-1"></i> Hasta {{ plan.max_participants }} participantes por sala</li>
+                <li class="mb-1"><i class="bi bi-check2 text-primary me-1"></i> Hasta {{ plan.max_rooms }} salas simultáneas</li>
+                <li><i class="bi bi-check2 text-primary me-1"></i> 30 días por pago, sin renovación automática</li>
+            </ul>
+            <button type="button"
+                    class="btn btn-brand w-100 mt-auto js-pay"
+                    data-plan="{{ plan.key }}"
+                    data-plan-name="{{ plan.name }}"
+                    data-value="{{ plan.price_wei_hex }}"
+                    {% if not merchant %}disabled{% endif %}>
+                <i class="bi bi-wallet2 me-1"></i>
+                {% if status.key == plan.key and status.active %}Extender 30 días{% else %}Pagar con Core{% endif %}
+            </button>
+        </article>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="payMessage" class="alert sb-msg d-none mb-4" role="status"></div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-7">
+        <section class="sb-card">
+            <h2 class="h6 fw-bold mb-3">Cómo pagar</h2>
+            <ol class="sb-steps mb-0">
+                <li>Instala la extensión <a href="https://core.app/" target="_blank" rel="noopener">Core wallet</a> y crea o importa una billetera.</li>
+                <li>Consigue AVAX de prueba en el <a href="https://core.app/tools/testnet-faucet/" target="_blank" rel="noopener">faucet de Fuji</a> (solo para gas y el pago, no es dinero real).</li>
+                <li>Pulsa <strong>Pagar con Core</strong>: te pediremos cambiar a la red Avalanche Fuji si hace falta.</li>
+                <li>Confirma la transacción en Core. Cuando la red la confirme, activamos tu plan automáticamente.</li>
+            </ol>
+        </section>
+    </div>
+    <div class="col-lg-5">
+        <section class="sb-card">
+            <h2 class="h6 fw-bold mb-2">¿Ya pagaste y se cerró la página?</h2>
+            <p class="small text-muted">Pega el hash de la transacción para validarla.</p>
+            <form id="manualForm" class="d-flex flex-column gap-2">
+                <select class="form-select form-select-sm" name="plan" required>
+                    {% for plan in plans %}<option value="{{ plan.key }}">{{ plan.name }}</option>{% endfor %}
+                </select>
+                <input class="form-control form-control-sm font-monospace" name="tx_hash" placeholder="0x..." required pattern="0x[0-9a-fA-F]{64}">
+                <button class="btn btn-outline-primary btn-sm" type="submit" {% if not merchant %}disabled{% endif %}>Validar transacción</button>
+            </form>
+        </section>
+    </div>
+</div>
+
+{% if payments %}
+<section class="sb-card mb-4">
+    <h2 class="h6 fw-bold mb-3">Historial de pagos</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Fecha</th><th>Plan</th><th>Monto</th><th>Transacción</th></tr></thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td class="small">{{ p.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td class="small">{{ p.plan|capitalize }}</td>
+                    <td class="small">{{ '%.4f'|format(p.amount_wei|int / 10**18) }} AVAX</td>
+                    <td class="small font-monospace">
+                        <a href="https://testnet.snowtrace.io/tx/{{ p.tx_hash }}" target="_blank" rel="noopener">{{ p.tx_hash[:10] }}…{{ p.tx_hash[-6:] }}</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+<script>
+(function () {
+    const MERCHANT = {{ merchant|tojson }};
+    const CHAIN_ID_HEX = {{ ('0x%x' % chain_id)|tojson }};
+    const RPC_URL = {{ rpc_url|tojson }};
+    const VERIFY_URL = {{ url_for('billing.verify_payment')|tojson }};
+    const msgBox = document.getElementById('payMessage');
+
+    function showMessage(kind, html) {
+        msgBox.className = 'alert sb-msg mb-4 alert-' + kind;
+        msgBox.innerHTML = html;
+        msgBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Core se anuncia vía EIP-6963; si no, usamos window.avalanche o window.ethereum.
+    const announced = [];
+    window.addEventListener('eip6963:announceProvider', (e) => announced.push(e.detail));
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+    function getProvider() {
+        const core = announced.find((p) => p.info && p.info.rdns === 'app.core.extension');
+        if (core) return core.provider;
+        if (window.avalanche) return window.avalanche;
+        if (announced.length) return announced[0].provider;
+        return window.ethereum || null;
+    }
+
+    async function ensureFuji(provider) {
+        const current = await provider.request({ method: 'eth_chainId' });
+        if (current && current.toLowerCase() === CHAIN_ID_HEX) return;
+        try {
+            await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] });
+        } catch (err) {
+            if (err.code !== 4902) throw err;
+            await provider.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                    chainId: CHAIN_ID_HEX,
+                    chainName: 'Avalanche Fuji C-Chain',
+                    nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+                    rpcUrls: [RPC_URL],
+                    blockExplorerUrls: ['https://testnet.snowtrace.io/'],
+                }],
+            });
+        }
+    }
+
+    async function verify(plan, txHash, attempt = 0) {
+        const res = await fetch(VERIFY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan, tx_hash: txHash }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            window.location.href = data.redirect;
+            return;
+        }
+        if (data.pending && attempt < 40) {
+            showMessage('info', '<span class="spinner-border spinner-border-sm me-2"></span>Esperando confirmación de la red… <span class="font-monospace small">' + txHash.slice(0, 12) + '…</span>');
+            setTimeout(() => verify(plan, txHash, attempt + 1), 3000);
+            return;
+        }
+        showMessage('danger', data.message || 'No pudimos validar el pago. Intenta de nuevo con el hash de la transacción.');
+    }
+
+    async function pay(button) {
+        const provider = getProvider();
+        if (!provider) {
+            showMessage('warning', 'No encontramos Core wallet. <a href="https://core.app/" target="_blank" rel="noopener">Instala la extensión</a> y recarga la página.');
+            return;
+        }
+        const buttons = document.querySelectorAll('.js-pay');
+        buttons.forEach((b) => (b.disabled = true));
+        try {
+            showMessage('info', 'Conectando con Core wallet…');
+            const [from] = await provider.request({ method: 'eth_requestAccounts' });
+            await ensureFuji(provider);
+            showMessage('info', 'Confirma el pago de <strong>' + button.dataset.planName + '</strong> en Core wallet…');
+            const txHash = await provider.request({
+                method: 'eth_sendTransaction',
+                params: [{ from, to: MERCHANT, value: button.dataset.value }],
+            });
+            await verify(button.dataset.plan, txHash);
+        } catch (err) {
+            const rejected = err && (err.code === 4001 || /reject|denied/i.test(err.message || ''));
+            showMessage(rejected ? 'warning' : 'danger', rejected ? 'Cancelaste la transacción en Core.' : 'Error con la billetera: ' + (err.message || err));
+        } finally {
+            buttons.forEach((b) => (b.disabled = !MERCHANT));
+        }
+    }
+
+    document.querySelectorAll('.js-pay').forEach((btn) => btn.addEventListener('click', () => pay(btn)));
+
+    document.getElementById('manualForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const form = new FormData(e.target);
+        verify(form.get('plan'), form.get('tx_hash').trim());
+    });
+})();
+</script>
+
+{% endblock %}

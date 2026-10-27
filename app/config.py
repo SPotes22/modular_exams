@@ -23,3 +23,10 @@ class Config:
     SUPERUSER_PASSWORD = os.environ.get('SUPERUSER_PASSWORD', 'admin1234')
     SUPERUSER_USERNAME = os.environ.get('SUPERUSER_USERNAME', 'SuperAdmin')
 
+    # Suscripciones pagadas con AVAX en la testnet Fuji (Core wallet)
+    AVAX_RPC_URL = os.environ.get('AVAX_RPC_URL', 'https://api.avax-test.network/ext/bc/C/rpc')
+    AVAX_CHAIN_ID = int(os.environ.get('AVAX_CHAIN_ID', '43113'))
+    AVAX_MERCHANT_ADDRESS = os.environ.get('AVAX_MERCHANT_ADDRESS', '')
+    PRICE_INSTRUCTOR_AVAX = os.environ.get('PRICE_INSTRUCTOR_AVAX', '0.01')
+    PRICE_ACADEMIA_AVAX = os.environ.get('PRICE_ACADEMIA_AVAX', '0.025')
+

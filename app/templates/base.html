@@ -868,6 +868,29 @@
                         {% endif %}
 
 
+                        {% if plan_status %}
+                            <!-- Plan -->
+                            <a
+                                class="nav-link app-nav-link"
+                                href="{{ url_for('billing.subscription') }}"
+                                title="Tu suscripción"
+                            >
+                                {% if not plan_status.active %}
+                                    <span class="badge bg-danger-subtle text-danger rounded-pill px-2 py-1">
+                                        <i class="bi bi-exclamation-circle me-1"></i>Plan vencido
+                                    </span>
+                                {% elif plan_status.key == 'trial' %}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-2 py-1">
+                                        <i class="bi bi-hourglass-split me-1"></i>Prueba: {{ plan_status.days_left }} día{{ 's' if plan_status.days_left != 1 }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-primary-subtle text-primary rounded-pill px-2 py-1">
+                                        <i class="bi bi-gem me-1"></i>{{ plan_status.name }}
+                                    </span>
+                                {% endif %}
+                            </a>
+                        {% endif %}
+
                         <!-- Separator -->
                         <div
                             class="vr mx-2 d-none d-lg-block"
@@ -912,6 +935,15 @@
                                 <li>
                                     <hr class="dropdown-divider">
                                 </li>
+
+                                {% if plan_status %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('billing.subscription') }}">
+                                        <i class="bi bi-wallet2 me-2"></i>
+                                        Suscripción
+                                    </a>
+                                </li>
+                                {% endif %}
 
 
                                 <li>

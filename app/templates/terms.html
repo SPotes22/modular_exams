@@ -150,7 +150,11 @@
                 Los planes pagos (<a href="{{ url_for('auth.pricing') }}">Instructores y Academias</a>)
                 se cobran por mes, en pesos colombianos (COP), por anticipado y sin compromiso anual.
             </li>
-            <li>Los pagos los procesa un proveedor externo. MyTraining no almacena datos de tarjetas.</li>
+            <li>
+                Los pagos se hacen en AVAX desde Core wallet sobre la red Avalanche Fuji. Cada pago
+                confirmado en la blockchain activa el plan por 30 días; no hay renovación automática.
+                MyTraining no pide ni almacena datos de tarjetas ni llaves privadas.
+            </li>
             <li>Los precios pueden cambiar; te avisaremos con al menos 30 días de anticipación.</li>
             <li>Los estudiantes que ingresan con código de sala no pagan.</li>
         </ul>

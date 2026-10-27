@@ -6,6 +6,7 @@ from app.models import ExamSession as DbExamSession, LiveAnswer
 from app.modes import registry
 from app.realtime import events
 from app.realtime.manager import session_manager
+from app.services.billing import room_capacity_error
 from app.services.exam_content import normalize_room_code, socket_room
 
 
@@ -79,6 +80,15 @@ def handle_student_join(data):
     if not student_id:
         emit(events.ERROR, {'message': 'Estudiante no autenticado'})
         return
+    rt_session = session_manager.sessions.get(room_code)
+    known = rt_session and (student_id in rt_session.students or str(student_id) in rt_session.students)
+    if rt_session and not known:
+        db_session = DbExamSession.query.filter_by(session_code=room_code).first()
+        connected = sum(1 for st in rt_session.students.values() if st.connected)
+        full_reason = room_capacity_error(db_session, connected)
+        if full_reason:
+            emit(events.ERROR, {'message': full_reason})
+            return
     result = session_manager.add_student(room_code, student_id, username, request.sid)
     if not result:
         emit(events.ERROR, {'message': 'Sesión no encontrada'})

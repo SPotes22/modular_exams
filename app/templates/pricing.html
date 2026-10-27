@@ -244,6 +244,7 @@
 {% set plans = [
     {
         'tag': 'Para enseñar por tu cuenta',
+        'key': 'instructor',
         'name': 'Instructores',
         'desc': 'Para profes y capacitadores que gestionan sus propios grupos.',
         'price': '49.000',
@@ -259,6 +260,7 @@
     },
     {
         'tag': 'Para enseñar en equipo',
+        'key': 'academia',
         'name': 'Academias',
         'desc': 'Para pequeños equipos que capacitan a más personas.',
         'price': '129.000',
@@ -304,10 +306,17 @@
                 <div class="pr-price mb-2">${{ plan.price }} <small>COP / mes</small></div>
                 <p class="pr-note mb-4">Pago mensual. Sin compromiso anual.</p>
 
+                {% if plan_status %}
+                <a href="{{ url_for('billing.subscription', plan=plan.key) }}"
+                   class="pr-btn {% if plan.featured %}pr-btn-solid{% else %}pr-btn-outline{% endif %}">
+                    Pagar con Core wallet
+                </a>
+                {% else %}
                 <a href="{{ url_for('auth.register') }}"
                    class="pr-btn {% if plan.featured %}pr-btn-solid{% else %}pr-btn-outline{% endif %}">
                     Probar gratis 14 días
                 </a>
+                {% endif %}
                 <p class="pr-note text-center small mt-2 mb-0">
                     Después de la prueba: ${{ plan.price }} COP al mes.
                 </p>
@@ -326,6 +335,7 @@
 
     <p class="pr-footnote text-center mt-4 mb-0">
         Ambos planes incluyen videos enlazados desde YouTube o Vimeo.
+        Pagos en AVAX con Core wallet sobre la red Avalanche Fuji.
         Al suscribirte aceptas los <a href="{{ url_for('auth.terms') }}">Términos y condiciones</a>.
     </p>
 </section>
@@ -443,6 +453,19 @@
                 <div class="accordion-body text-muted">
                     Sí. Puedes subir o bajar de plan cuando quieras y cancelar en cualquier momento;
                     el plan sigue activo hasta el final del mes ya pagado.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                    ¿Cómo se paga?
+                </button>
+            </h3>
+            <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#pricingFaq">
+                <div class="accordion-body text-muted">
+                    Con AVAX desde Core wallet, en la red de pruebas Avalanche Fuji. Cada pago activa
+                    el plan por 30 días y se verifica directamente en la blockchain; no pedimos tarjeta.
                 </div>
             </div>
         </div>

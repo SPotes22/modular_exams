@@ -22,6 +22,10 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=True)
     role = db.Column(db.String(20), default='student')
     default_exam_view = db.Column(db.String(40), default='questions')
+    plan = db.Column(db.String(20), default='trial')
+    trial_started_at = db.Column(db.DateTime, nullable=True)
+    plan_expires_at = db.Column(db.DateTime, nullable=True)
+    wallet_address = db.Column(db.String(64), nullable=True)
 
     @property
     def full_name(self):
@@ -35,6 +39,18 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+class Payment(db.Model):
+    __tablename__ = 'payments'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    plan = db.Column(db.String(20), nullable=False)
+    tx_hash = db.Column(db.String(80), unique=True, nullable=False)
+    from_address = db.Column(db.String(64), nullable=True)
+    amount_wei = db.Column(db.String(40), nullable=False)
+    chain_id = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User')
 
 class Bank(db.Model):
     __tablename__ = 'banks'

@@ -8,6 +8,7 @@ from app.extensions import db, socketio
 from app.realtime import events
 from app.realtime.manager import session_manager
 from app.modes import registry
+from app.services.billing import can_open_room
 from app.services.exam_content import normalize_room_code, create_session_question_snapshots
 from app.models import (
     User, Bank, Question, QuestionOption, Exam, ExamQuestion, 
@@ -158,6 +159,10 @@ def create_session(exam_id):
     if exam.instructor_id != current_user.id:
         return 'Acceso denegado', 403
 
+    allowed, reason = can_open_room(current_user)
+    if not allowed:
+        flash(reason, 'warning')
+        return redirect(url_for('billing.subscription'))
     code = normalize_room_code(''.join(random.choices(string.ascii_uppercase + string.digits, k=6)))
     expected_students = request.form.get('expected_students', type=int, default=0)
     new_session = ExamSession(exam_id=exam_id, session_code=code, status='waiting', expected_students=max(expected_students or 0, 0))
@@ -1022,6 +1027,10 @@ def configure_session(exam_id):
     if current_user.role != 'instructor' or exam.instructor_id != current_user.id:
         return 'Acceso denegado', 403
     if request.method == 'POST':
+        allowed, reason = can_open_room(current_user)
+        if not allowed:
+            flash(reason, 'warning')
+            return redirect(url_for('billing.subscription'))
         code = normalize_room_code(''.join(random.choices(string.ascii_uppercase + string.digits, k=6)))
         session = ExamSession(exam_id=exam.id, session_code=code, status='READY', expected_students=request.form.get('expected_students', type=int, default=0), question_order=request.form.get('question_order', 'original'))
         db.session.add(session); db.session.commit()
