@@ -34,8 +34,10 @@
            ========================================================= */
 
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
+            --primary: #0866fc;
+            --primary-dark: #0550d6;
+            --primary-light: #eaf1ff;
+            --primary-soft: #dbe9ff;
 
             --background: #f5f7fb;
             --surface: #ffffff;
@@ -196,7 +198,7 @@
         .app-nav-link.active {
             color: var(--primary) !important;
 
-            background: #eff6ff;
+            background: var(--primary-light);
         }
 
 
@@ -242,7 +244,7 @@
             align-items: center;
             justify-content: center;
 
-            background: #eff6ff;
+            background: var(--primary-light);
             color: var(--primary);
 
             font-size: 0.78rem;
@@ -989,6 +991,17 @@
                             Iniciar Sesión
                         </a>
 
+                        {% if request.endpoint == 'auth.landing' %}
+                        <a
+                            class="btn btn-brand btn-sm ms-lg-2 px-3 py-2 rounded-pill shadow-sm"
+                            href="#"
+                            data-bs-toggle="modal"
+                            data-bs-target="#leadFormModal"
+                        >
+                            <i class="bi bi-person-plus me-1"></i>
+                            Crear Cuenta
+                        </a>
+                        {% else %}
                         <a
                             class="btn btn-brand btn-sm ms-lg-2 px-3 py-2 rounded-pill shadow-sm"
                             href="{{ url_for('auth.register') }}"
@@ -996,6 +1009,7 @@
                             <i class="bi bi-person-plus me-1"></i>
                             Crear Cuenta
                         </a>
+                        {% endif %}
 
                     {% endif %}
 

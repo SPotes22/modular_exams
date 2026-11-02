@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}MyTraining | Exámenes y capacitación en tiempo real{% endblock %}
+{% block title %}MyTraining | Exámenes en vivo y capacitación{% endblock %}
 
 {% block head %}
 <style>
@@ -8,7 +8,7 @@
        ========================================================= */
 
     .lp-hero {
-        background: linear-gradient(180deg, #eef2ff 0%, var(--background) 100%);
+        background: linear-gradient(180deg, var(--primary-light) 0%, var(--background) 100%);
         border: 1px solid var(--border);
         border-radius: var(--radius-lg);
         padding: 3.5rem 2.5rem;
@@ -19,7 +19,7 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        background: #eff6ff;
+        background: var(--primary-light);
         color: var(--primary);
         font-weight: 700;
         font-size: 0.78rem;
@@ -27,7 +27,7 @@
         text-transform: uppercase;
         padding: 0.4rem 0.85rem;
         border-radius: 999px;
-        border: 1px solid #dbeafe;
+        border: 1px solid var(--primary-soft);
     }
 
     .lp-hero h1 {
@@ -99,6 +99,16 @@
         margin-bottom: 0;
     }
 
+    .lp-room-tag {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #93c5fd;
+        margin-bottom: 0.15rem;
+    }
+
     .lp-usecase-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -121,7 +131,28 @@
         align-items: center;
         justify-content: center;
         font-size: 1.2rem;
-        background: #eff6ff;
+        background: var(--primary-light);
+        color: var(--primary);
+    }
+
+    .lp-service-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        height: 100%;
+    }
+
+    .lp-service-note {
+        background: var(--primary-light);
+        border: 1px solid var(--primary-soft);
+        border-radius: var(--radius-md);
+        padding: 1rem 1.25rem;
+        color: var(--text);
+        font-size: 0.92rem;
+    }
+
+    .lp-service-note i {
         color: var(--primary);
     }
 
@@ -231,6 +262,15 @@
         border-color: var(--primary);
     }
 
+    /* ---------------------------------------------------------
+       LEAD FORM MODAL
+       --------------------------------------------------------- */
+
+    .lp-form-modal {
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+    }
+
     @media (max-width: 991.98px) {
         .lp-hero {
             padding: 2.25rem 1.5rem;
@@ -260,7 +300,7 @@
         <div class="col-lg-7">
             <span class="lp-eyebrow mb-3 d-inline-flex">
                 <i class="bi bi-lightning-charge-fill"></i>
-                Evaluación y capacitación en tiempo real
+                Exámenes en vivo y capacitación — en un solo lugar
             </span>
 
             <h1 class="mt-3 mb-3">
@@ -268,9 +308,9 @@
             </h1>
 
             <p class="lead mb-4">
-                Crea bancos de preguntas, arma exámenes y capacitaciones, y lánzalos en salas en vivo.
-                MyTraining corrige automáticamente, sincroniza el progreso en tiempo real y te devuelve
-                el tiempo que antes perdías revisando uno por uno.
+                Crea bancos de preguntas y úsalos para armar exámenes en vivo o capacitaciones
+                a ritmo propio. MyTraining corrige automáticamente, sincroniza el progreso en
+                tiempo real y te devuelve el tiempo que antes perdías revisando uno por uno.
             </p>
 
             <div class="d-flex flex-wrap gap-2 mb-3">
@@ -279,7 +319,7 @@
                     <i class="bi bi-grid me-1"></i> Ir a mi panel
                 </a>
                 {% else %}
-                <a href="{{ url_for('auth.register') }}" class="btn btn-brand px-4 py-2 rounded-pill shadow-sm fw-bold">
+                <a href="#" data-bs-toggle="modal" data-bs-target="#leadFormModal" class="btn btn-brand px-4 py-2 rounded-pill shadow-sm fw-bold">
                     <i class="bi bi-person-plus me-1"></i> Probar gratis 14 días
                 </a>
                 {% endif %}
@@ -309,6 +349,7 @@
 
                 <div class="lp-room-row">
                     <div class="text-white-50 small">
+                        <div class="lp-room-tag">Examen en vivo</div>
                         <div class="text-white fw-semibold">Quiz de Fotosíntesis</div>
                         Pregunta 4 de 10
                     </div>
@@ -319,7 +360,8 @@
 
                 <div class="lp-room-row">
                     <div class="text-white-50 small">
-                        <div class="text-white fw-semibold">Capacitación: Seguridad</div>
+                        <div class="lp-room-tag">Capacitación</div>
+                        <div class="text-white fw-semibold">Seguridad en el laboratorio</div>
                         Autoevaluación en curso
                     </div>
                     <span class="badge bg-warning-subtle text-warning rounded-pill px-2 py-1">
@@ -461,7 +503,7 @@
                 </div>
                 <div class="d-flex justify-content-between align-items-center border rounded-3 p-3">
                     <div class="d-flex align-items-center gap-2">
-                        <span class="stat-icon" style="width:36px;height:36px;background:#dbeafe;color:#2563eb;"><i class="bi bi-file-earmark-text"></i></span>
+                        <span class="stat-icon" style="width:36px;height:36px;background:var(--primary-soft);color:var(--primary);"><i class="bi bi-file-earmark-text"></i></span>
                         <span class="small fw-semibold">Examen sin respuestas (PDF)</span>
                     </div>
                     <i class="bi bi-download text-muted"></i>
@@ -507,6 +549,47 @@
                 </div>
             </div>
         </div>
+    </div>
+</section>
+
+
+<!-- =========================================================
+     EXAMEN VS CAPACITACIÓN
+     ========================================================= -->
+<section class="lp-section pt-0">
+    <h2 class="lp-section-title mb-4">Dos formas de usar MyTraining</h2>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="lp-service-card">
+                <span class="lp-usecase-icon mb-3"><i class="bi bi-collection"></i></span>
+                <h5 class="fw-bold mb-2">Capacitación</h5>
+                <p class="text-muted mb-0">
+                    Formación y entrenamiento a tu ritmo. Organiza contenido, videos y
+                    preguntas de práctica para que tus estudiantes o tu equipo aprendan y
+                    refuercen un tema — sin presión de tiempo, con los intentos que necesiten.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="lp-service-card">
+                <span class="lp-usecase-icon mb-3"><i class="bi bi-broadcast"></i></span>
+                <h5 class="fw-bold mb-2">Examen en vivo</h5>
+                <p class="text-muted mb-0">
+                    Evaluación formal en tiempo real. Lanzas una sala con código, todos entran
+                    al mismo momento, tú controlas el ritmo (pausar/reanudar) y ves resultados
+                    y corrección automática apenas terminan.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="lp-service-note">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <strong>¿Necesitas ambos?</strong> Una capacitación puede incluir exámenes en vivo
+        como parte del recorrido — por ejemplo, módulos de práctica seguidos de una
+        evaluación en vivo al final — o puedes usarlos por separado: solo capacitación para
+        reforzar, o solo examen en vivo para evaluar directamente.
     </div>
 </section>
 
@@ -641,11 +724,11 @@
     <div class="lp-cta-banner">
         <h2 class="fw-bold mb-2" style="letter-spacing: -0.02em;">Lleva tus evaluaciones al siguiente nivel</h2>
         <p class="mb-4" style="opacity: 0.9; max-width: 56ch; margin-left: auto; margin-right: auto;">
-            Crea tu banco de preguntas, arma exámenes y capacitaciones, y compártelos con un simple
-            código de sala.
+            Crea tu banco de preguntas y úsalo tanto en exámenes en vivo como en
+            capacitaciones — comparte todo con un simple código de sala.
         </p>
         <div class="d-flex flex-wrap justify-content-center gap-2">
-            <a href="{{ url_for('auth.register') }}" class="btn btn-light px-4 py-2 rounded-pill fw-bold shadow-sm">
+            <a href="#" data-bs-toggle="modal" data-bs-target="#leadFormModal" class="btn btn-light px-4 py-2 rounded-pill fw-bold shadow-sm">
                 Probar gratis 14 días
             </a>
             <a href="{{ url_for('auth.pricing') }}" class="btn btn-outline-light px-4 py-2 rounded-pill fw-bold">
@@ -667,7 +750,7 @@
                 MyTraining
             </span>
             <p class="mt-2 mb-0 small" style="max-width: 32ch;">
-                Exámenes y capacitación en tiempo real, con corrección automática. Planes desde
+                Exámenes en vivo y capacitación, con corrección automática. Planes desde
                 $49.000 COP al mes.
             </p>
         </div>
@@ -703,7 +786,7 @@
             <div class="lp-footer-heading">Cuenta</div>
             <ul class="lp-footer-links">
                 <li><a href="{{ url_for('auth.login') }}">Iniciar sesión</a></li>
-                <li><a href="{{ url_for('auth.register') }}">Crear cuenta</a></li>
+                <li><a href="#" data-bs-toggle="modal" data-bs-target="#leadFormModal">Crear cuenta</a></li>
                 <li><a href="{{ url_for('auth.student_join_exam') }}">Ingresar con código</a></li>
             </ul>
         </div>
@@ -721,4 +804,213 @@
     </div>
 </footer>
 
+
+<!-- =========================================================
+     MODAL — FORMULARIO DE CONTACTO / LEAD
+     ========================================================= -->
+<div class="modal fade" id="leadFormModal" tabindex="-1" aria-labelledby="leadFormModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content lp-form-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="leadFormModalLabel">Empieza gratis con MyTraining</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="text-muted small mb-3">
+                    Cuéntanos quién eres y te contactamos para activar tu prueba de 14 días.
+                </p>
+
+                <form id="leadForm" novalidate>
+                    <div class="mb-3">
+                        <label for="leadNombre" class="form-label small fw-semibold">Nombre completo *</label>
+                        <input type="text" class="form-control" id="leadNombre" name="nombre" required>
+                        <div class="invalid-feedback">Ingresa tu nombre completo.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="leadCorreo" class="form-label small fw-semibold">Correo *</label>
+                        <input type="email" class="form-control" id="leadCorreo" name="correo" required>
+                        <div class="invalid-feedback">Ingresa un correo válido.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="leadTelefono" class="form-label small fw-semibold">Teléfono / WhatsApp *</label>
+                        <input type="tel" class="form-control" id="leadTelefono" name="telefono" required>
+                        <div class="invalid-feedback">Ingresa tu número de teléfono o WhatsApp.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="leadInstitucion" class="form-label small fw-semibold">Institución o empresa *</label>
+                        <input type="text" class="form-control" id="leadInstitucion" name="institucion" required>
+                        <div class="invalid-feedback">Ingresa tu institución o empresa.</div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label for="leadRol" class="form-label small fw-semibold">Rol *</label>
+                            <select class="form-select" id="leadRol" name="rol" required>
+                                <option value="" selected disabled>Selecciona…</option>
+                                <option value="Estudiante">Estudiante</option>
+                                <option value="Docente">Docente</option>
+                                <option value="Empresa">Empresa</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                            <div class="invalid-feedback">Selecciona tu rol.</div>
+                        </div>
+
+                        <div class="col-sm-6">
+                            <label for="leadInteres" class="form-label small fw-semibold">Te interesa *</label>
+                            <select class="form-select" id="leadInteres" name="interes" required>
+                                <option value="" selected disabled>Selecciona…</option>
+                                <option value="Capacitación">Capacitación</option>
+                                <option value="Examen en vivo">Examen en vivo</option>
+                                <option value="Ambos">Ambos</option>
+                            </select>
+                            <div class="invalid-feedback">Cuéntanos qué te interesa.</div>
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-3 mb-1">
+                        <input class="form-check-input" type="checkbox" id="leadConsentimiento" required>
+                        <label class="form-check-label small text-muted" for="leadConsentimiento">
+                            Autorizo el tratamiento de mis datos personales conforme a la
+                            <a href="{{ url_for('auth.terms') }}" target="_blank">Ley 1581 de 2012</a>. *
+                        </label>
+                        <div class="invalid-feedback">Debes autorizar el tratamiento de datos para continuar.</div>
+                    </div>
+
+                    <div id="leadFormSuccess" class="alert alert-success d-none mt-3 mb-0 py-2 small">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        ¡Gracias! Recibimos tus datos, te contactaremos pronto.
+                    </div>
+                    <div id="leadFormError" class="alert alert-danger d-none mt-3 mb-0 py-2 small">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        No pudimos enviar el formulario. Intenta de nuevo en unos segundos.
+                    </div>
+
+                    <button type="submit" id="leadFormSubmit" class="btn btn-brand w-100 rounded-pill fw-bold mt-4 py-2">
+                        <span id="leadFormSubmitText">Enviar</span>
+                        <span id="leadFormSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    // =====================================================
+    // CONFIGURACIÓN DEL GOOGLE FORM
+    // Reemplaza formId y cada entry.XXXXXXX con los valores
+    // reales de tu Google Form (ver instrucciones del equipo).
+    // =====================================================
+    const GOOGLE_FORM_CONFIG = {
+        formId: "TU_FORM_ID_AQUI",
+        entries: {
+            nombre: "entry.XXXXXXXXX",
+            correo: "entry.XXXXXXXXX",
+            telefono: "entry.XXXXXXXXX",
+            institucion: "entry.XXXXXXXXX",
+            rol: "entry.XXXXXXXXX",
+            interes: "entry.XXXXXXXXX",
+            consentimiento: "entry.XXXXXXXXX",
+        },
+    };
+
+    const form = document.getElementById('leadForm');
+    const submitBtn = document.getElementById('leadFormSubmit');
+    const submitText = document.getElementById('leadFormSubmitText');
+    const spinner = document.getElementById('leadFormSpinner');
+    const successBox = document.getElementById('leadFormSuccess');
+    const errorBox = document.getElementById('leadFormError');
+    const consentInput = document.getElementById('leadConsentimiento');
+
+    if (!form) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    function setSubmitting(isSubmitting) {
+        submitBtn.disabled = isSubmitting;
+        spinner.classList.toggle('d-none', !isSubmitting);
+        submitText.textContent = isSubmitting ? 'Enviando…' : 'Enviar';
+    }
+
+    function validateForm() {
+        let valid = form.checkValidity();
+
+        const correoInput = document.getElementById('leadCorreo');
+        if (correoInput.value && !emailRegex.test(correoInput.value)) {
+            correoInput.setCustomValidity('invalid');
+            valid = false;
+        } else {
+            correoInput.setCustomValidity('');
+        }
+
+        if (!consentInput.checked) {
+            consentInput.setCustomValidity('invalid');
+            valid = false;
+        } else {
+            consentInput.setCustomValidity('');
+        }
+
+        form.classList.add('was-validated');
+        return valid;
+    }
+
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        successBox.classList.add('d-none');
+        errorBox.classList.add('d-none');
+
+        if (!validateForm()) {
+            return;
+        }
+
+        const entries = GOOGLE_FORM_CONFIG.entries;
+        const payload = new FormData();
+        payload.append(entries.nombre, document.getElementById('leadNombre').value.trim());
+        payload.append(entries.correo, document.getElementById('leadCorreo').value.trim());
+        payload.append(entries.telefono, document.getElementById('leadTelefono').value.trim());
+        payload.append(entries.institucion, document.getElementById('leadInstitucion').value.trim());
+        payload.append(entries.rol, document.getElementById('leadRol').value);
+        payload.append(entries.interes, document.getElementById('leadInteres').value);
+        payload.append(entries.consentimiento, 'Sí');
+
+        const submitUrl = 'https://docs.google.com/forms/d/e/' + GOOGLE_FORM_CONFIG.formId + '/formResponse';
+
+        setSubmitting(true);
+
+        fetch(submitUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: payload,
+        })
+            .then(function() {
+                setSubmitting(false);
+                successBox.classList.remove('d-none');
+                form.reset();
+                form.classList.remove('was-validated');
+            })
+            .catch(function(err) {
+                console.error('Error enviando el formulario:', err);
+                setSubmitting(false);
+                errorBox.classList.remove('d-none');
+            });
+    });
+
+    const leadFormModalEl = document.getElementById('leadFormModal');
+    if (leadFormModalEl) {
+        leadFormModalEl.addEventListener('hidden.bs.modal', function() {
+            successBox.classList.add('d-none');
+            errorBox.classList.add('d-none');
+        });
+    }
+})();
+</script>
 {% endblock %}
