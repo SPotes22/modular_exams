@@ -155,7 +155,7 @@ def verify_and_activate(user, plan_key, tx_hash):
     if chain_id != current_app.config['AVAX_CHAIN_ID']:
         raise PaymentError('La transacción no es de la red Avalanche Fuji.')
     if (tx.get('to') or '').lower() != merchant:
-        raise PaymentError('La transacción no fue enviada a la billetera de MyTraining.')
+        raise PaymentError('La transacción no fue enviada a la billetera de Modular Exams.')
     value = int(tx.get('value') or '0x0', 16)
     if value < plan_price_wei(plan_key):
         raise PaymentError(f'El monto enviado es menor al precio del plan ({plan_price_avax(plan_key)} AVAX).')
