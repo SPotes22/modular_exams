@@ -7,6 +7,33 @@
        LANDING PAGE
        ========================================================= */
 
+    .lp-demo-strip {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border-radius: var(--radius-md);
+        padding: 0.85rem 1.25rem;
+        color: #ffffff;
+    }
+
+    .lp-demo-strip-text {
+        font-weight: 700;
+        font-size: 0.92rem;
+    }
+
+    .lp-demo-strip .btn-light {
+        color: var(--primary);
+        white-space: nowrap;
+    }
+
+    @media (max-width: 575.98px) {
+        .lp-demo-strip {
+            text-align: center;
+        }
+
+        .lp-demo-strip .d-flex {
+            justify-content: center !important;
+        }
+    }
+
     .lp-hero {
         background: linear-gradient(180deg, var(--primary-light) 0%, var(--background) 100%);
         border: 1px solid var(--border);
@@ -291,6 +318,22 @@
 {% endblock %}
 
 {% block content %}
+
+<!-- =========================================================
+     DEMO CERRADA — BANNER
+     ========================================================= -->
+<section class="lp-demo-strip mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span class="lp-demo-strip-text">
+            <i class="bi bi-lock-fill me-2"></i>
+            Cupos limitados — estamos abriendo una demo cerrada de Modular Exams
+        </span>
+        <a href="#" data-bs-toggle="modal" data-bs-target="#leadFormModal" class="btn btn-light btn-sm px-3 py-2 rounded-pill fw-bold">
+            Inscríbete a la demo cerrada
+        </a>
+    </div>
+</section>
+
 
 <!-- =========================================================
      HERO
