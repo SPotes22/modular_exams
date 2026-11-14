@@ -4,12 +4,12 @@ import threading
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_socketio import SocketIO
-# from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect
 
 db = SQLAlchemy()
 login_manager = LoginManager()
 socketio = SocketIO(cors_allowed_origins="*" )
-# csrf = CSRFProtect()
+csrf = CSRFProtect()
 
 # SQLite solo permite un escritor a la vez. En modo threading, varios
 # estudiantes pueden disparar un commit al mismo tiempo y chocar con

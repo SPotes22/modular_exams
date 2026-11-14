@@ -1,51 +1,62 @@
 {% extends 'base.html' %}
-{% block title %}Reportes de Exámenes{% endblock %}
+{% block title %}Notas de estudiantes{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Reportes de Exámenes Finalizados</h2>
+    <h2>Notas de estudiantes</h2>
     <a href="{{ url_for('exams.instructor_dashboard') }}" class="btn btn-outline-secondary">Volver al Panel</a>
 </div>
 
 <div class="card shadow-sm">
     <div class="card-body">
+        <div class="row g-2 mb-3">
+            <div class="col-md-5">
+                <input type="text" id="filterStudent" class="form-control" placeholder="Buscar por estudiante...">
+            </div>
+            <div class="col-md-5">
+                <input type="text" id="filterClass" class="form-control" placeholder="Buscar por clase...">
+            </div>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle" id="gradesTable">
                 <thead class="table-dark">
                     <tr>
-                        <th>Código Sala</th>
+                        <th>Estudiante</th>
+                        <th>Clase</th>
                         <th>Examen</th>
-                        <th>Fecha de Creación</th>
-                        <th>Estudiantes</th>
-                        <th>Acción Reporte</th>
+                        <th>Sala</th>
+                        <th>Fecha</th>
+                        <th>Nota</th>
+                        <th>Estado</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for session_item in sessions %}
-                    <tr>
-                        <td><span class="badge bg-primary fs-6">{{ session_item.session_code }}</span></td>
-                        <td><strong>{{ session_item.exam.title }}</strong></td>
-                        <td>{{ session_item.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    {% for row in rows %}
+                    <tr data-student="{{ row.student_name|lower }}" data-class="{{ row.class_names|lower }}">
+                        <td>{{ row.student_name }}</td>
+                        <td>{{ row.class_names }}</td>
+                        <td>{{ row.exam_title }}</td>
+                        <td><span class="badge bg-primary">{{ row.session_code }}</span></td>
+                        <td>{{ row.attempt.completed_at.strftime('%Y-%m-%d %H:%M') if row.attempt.completed_at else '-' }}</td>
+                        <td class="fw-bold">{{ row.attempt.score }}%</td>
                         <td>
-                            <span class="badge bg-info text-dark">
-                                {{ session_item.attempts|length }}
-                            </span>
+                            {% if row.attempt.status == 'pending_review' %}
+                                <span class="badge bg-info-subtle text-info">Pendiente</span>
+                            {% elif row.attempt.score >= 60 %}
+                                <span class="badge bg-success-subtle text-success">Aprobado</span>
+                            {% else %}
+                                <span class="badge bg-danger-subtle text-danger">Reprobado</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <a href="{{ url_for('exams.session_report', session_id=session_item.id) }}" 
-                               class="btn btn-primary btn-sm me-1 shadow-sm">
-                                <i class="bi bi-bar-chart-line-fill me-1"></i> Ver Reporte
-                            </a>
-                            <a href="{{ url_for('exams.download_session_results_excel', session_id=session_item.id) }}" 
-                               class="btn btn-outline-success btn-sm shadow-sm">
-                                <i class="bi bi-file-earmark-excel me-1"></i> Excel
-                            </a>
+                            <a href="{{ url_for('exams.resultados', attempt_id=row.attempt.id) }}" class="btn btn-sm btn-outline-primary">Ver</a>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">
-                            No hay salas finalizadas con reportes disponibles aún.
+                        <td colspan="8" class="text-center text-muted py-4">
+                            Todavía no hay intentos registrados en tus exámenes.
                         </td>
                     </tr>
                     {% endfor %}
@@ -54,4 +65,18 @@
         </div>
     </div>
 </div>
+
+<script>
+function applyGradesFilter() {
+    const student = document.getElementById('filterStudent').value.toLowerCase();
+    const klass = document.getElementById('filterClass').value.toLowerCase();
+    document.querySelectorAll('#gradesTable tbody tr[data-student]').forEach(function(row) {
+        const matchStudent = row.dataset.student.includes(student);
+        const matchClass = row.dataset.class.includes(klass);
+        row.style.display = (matchStudent && matchClass) ? '' : 'none';
+    });
+}
+document.getElementById('filterStudent')?.addEventListener('input', applyGradesFilter);
+document.getElementById('filterClass')?.addEventListener('input', applyGradesFilter);
+</script>
 {% endblock %}

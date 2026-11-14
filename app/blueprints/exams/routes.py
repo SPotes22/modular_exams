@@ -1,7 +1,9 @@
 import random
 import string
+import json
 from io import BytesIO
 import pandas as pd
+from werkzeug.utils import secure_filename
 from flask import render_template, request, redirect, url_for, flash, send_file
 from flask_login import login_required, current_user
 from app.extensions import db, socketio
@@ -11,10 +13,10 @@ from app.modes import registry
 from app.services.billing import can_open_room
 from app.services.exam_content import normalize_room_code, create_session_question_snapshots
 from app.models import (
-    User, Bank, Question, QuestionOption, Exam, ExamQuestion, 
-    ExamSession, ExamAttempt, StudentAnswer, SessionQuestionSnapshot,
-    LiveAnswer
-    
+    User, Bank, Question, QuestionOption, QuestionMatching, QuestionOrder,
+    Exam, ExamQuestion, ExamSession, ExamAttempt, StudentAnswer,
+    SessionQuestionSnapshot, LiveAnswer
+
 )
 from app.blueprints.exams import exams_bp
 
@@ -186,8 +188,19 @@ def instructor_lobby(session_id):
 @login_required
 def presentar_examen(session_id):
     session_obj = ExamSession.query.get_or_404(session_id)
+
+    # Si el estudiante tiene otra sala activa distinta a esta, no lo dejamos
+    # entrar por URL directa a este examen: se queda en el que ya empezó.
+    if current_user.active_session_id and current_user.active_session_id != session_id:
+        active_session = ExamSession.query.get(current_user.active_session_id)
+        if active_session and active_session.status not in ['finished', 'FINISHED', 'closed', 'CLOSED']:
+            flash(
+                f'Ya estás en el examen "{active_session.exam.title}" (sala {active_session.session_code}).',
+                'warning')
+            return redirect(url_for('exams.presentar_examen', session_id=active_session.id))
+
     exam = session_obj.exam
-    
+
     questions_data = []
     eq_list = list(exam.questions)
     random.shuffle(eq_list)
@@ -319,17 +332,25 @@ def submit_exam(session_id):
     snapshots = create_session_question_snapshots(session_obj)
     exam = session_obj.exam
     total_possible = 0.0
+    pending_points = 0.0
     earned = 0.0
     student_answers = []
-    
+
     for eq in exam.questions:
         q = eq.question
         if not q:
             continue
         live_answer = live_answers_map.get(q.id)
         eq_points = float(eq.points if eq.points is not None else 1.0)
-        total_possible += eq_points
-        
+
+        # Las preguntas abiertas no tienen nota automática: su puntaje no
+        # entra todavía al total hasta que el profesor las califique, para
+        # no deflactar la nota del estudiante mientras espera revisión.
+        if q.question_type == 'open_answer':
+            pending_points += eq_points
+        else:
+            total_possible += eq_points
+
         snap = next((s for s in snapshots if s.original_question_id == q.id or s.order_index == eq.order_index), None)
         selected_option_text = None
         correct_ans_text = snap.correct_answer_display if snap else None
@@ -468,15 +489,17 @@ def submit_exam(session_id):
 
 
     final_score = (earned / total_possible * 100.0) if total_possible > 0 else 0.0
-    
+    has_pending_review = pending_points > 0
+
     attempt = ExamAttempt(
         student_id=current_user.id,
         session_id=session_id,
         score=round(final_score, 2),
-        status='completed',
+        status='pending_review' if has_pending_review else 'completed',
         attempt_number=attempt_count + 1,
         earned_points=round(earned, 2),
-        max_points=round(total_possible, 2)
+        max_points=round(total_possible, 2),
+        pending_points=round(pending_points, 2)
     )
     db.session.add(attempt)
     db.session.flush()
@@ -495,7 +518,11 @@ def submit_exam(session_id):
             points_awarded=ans_data.get('points_awarded', 0.0)
         )
         db.session.add(sa)
-    
+
+    # Ya entregó: lo liberamos de la sala para que pueda unirse a otro examen.
+    if current_user.active_session_id == session_id:
+        current_user.active_session_id = None
+
     db.session.commit()
 
     room_name = f"session_{session_obj.session_code}"
@@ -519,12 +546,84 @@ def submit_exam(session_id):
     flash('Examen enviado con éxito.', 'success')
     return redirect(url_for('exams.resultados', attempt_id=attempt.id))
 
+@exams_bp.route('/estudiante/mis-examenes')
+@login_required
+def my_attempts():
+    attempts = (ExamAttempt.query
+                .filter_by(student_id=current_user.id)
+                .order_by(ExamAttempt.completed_at.desc())
+                .all())
+    return render_template('my_attempts.html', attempts=attempts)
+
+
 @exams_bp.route('/resultados/<int:attempt_id>')
 @login_required
 def resultados(attempt_id):
     attempt = ExamAttempt.query.get_or_404(attempt_id)
+    is_owner = attempt.student_id == current_user.id
+    is_exam_instructor = attempt.session.exam.instructor_id == current_user.id
+    if not is_owner and not is_exam_instructor and current_user.role not in ['superuser', 'admin']:
+        return 'Acceso denegado', 403
     answers = StudentAnswer.query.filter_by(attempt_id=attempt.id).all()
     return render_template('resultados.html', attempt=attempt, answers=answers)
+
+
+def _open_answer_max_points(attempt, ans):
+    """Puntaje máximo de una respuesta abierta: toma la instantánea de la
+    sesión (congelada) y si no existe, cae al puntaje del examen en vivo."""
+    if ans.snapshot and ans.snapshot.points:
+        return float(ans.snapshot.points)
+    eq = ExamQuestion.query.filter_by(
+        exam_id=attempt.session.exam_id, question_id=ans.question_id).first()
+    return float(eq.points) if eq and eq.points is not None else 1.0
+
+
+@exams_bp.route('/instructor/attempt/<int:attempt_id>/calificar', methods=['GET', 'POST'])
+@login_required
+def grade_open_answers(attempt_id):
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    if attempt.session.exam.instructor_id != current_user.id and current_user.role not in ['superuser', 'admin']:
+        return 'Acceso denegado', 403
+
+    open_answers = [a for a in attempt.answers if a.is_correct is None]
+    for ans in open_answers:
+        ans.max_points = _open_answer_max_points(attempt, ans)
+
+    if request.method == 'POST':
+        for ans in open_answers:
+            raw = request.form.get(f'points_{ans.id}')
+            if raw is None or raw.strip() == '':
+                continue
+            try:
+                points = float(raw)
+            except ValueError:
+                continue
+            points = max(0.0, min(points, ans.max_points))
+            ans.points_awarded = round(points, 2)
+            ans.is_correct = points > 0
+
+        db.session.commit()
+
+        still_pending = any(a.is_correct is None for a in attempt.answers)
+        if not still_pending:
+            graded_open_points = sum(
+                a.points_awarded or 0.0 for a in attempt.answers
+                if a.question_snapshot_id and a.snapshot and a.snapshot.question_type == 'open_answer'
+            )
+            attempt.earned_points = round((attempt.earned_points or 0.0) + graded_open_points, 2)
+            attempt.max_points = round((attempt.max_points or 0.0) + (attempt.pending_points or 0.0), 2)
+            attempt.pending_points = 0.0
+            attempt.score = round(
+                (attempt.earned_points / attempt.max_points * 100.0) if attempt.max_points > 0 else 0.0, 2)
+            attempt.status = 'completed'
+            db.session.commit()
+            flash('Respuestas abiertas calificadas. El intento quedó completo.', 'success')
+        else:
+            flash('Calificación guardada. Aún quedan respuestas pendientes en este intento.', 'info')
+
+        return redirect(url_for('exams.session_report', session_id=attempt.session_id))
+
+    return render_template('grade_open_answers.html', attempt=attempt, open_answers=open_answers)
 
 @exams_bp.route('/exam/close/<int:session_id>', methods=['POST'])
 @login_required
@@ -545,14 +644,23 @@ def close_session(session_id):
 def exam_reports():
     if current_user.role != 'instructor':
         return redirect(url_for('auth.home'))
-    # El estado "finalizada" se guarda con distinta capitalización según la ruta
-    # que cerró la sesión ('finished' vs 'FINISHED'/'closed'/'CLOSED') — ver
-    # [[Bugs y Decisiones]] en la bóveda de Obsidian. Se filtra por todas las variantes.
-    sessions = ExamSession.query.join(Exam).filter(
-        Exam.instructor_id == current_user.id,
-        ExamSession.status.in_(['finished', 'FINISHED', 'closed', 'CLOSED'])
-    ).order_by(ExamSession.created_at.desc()).all()
-    return render_template('exam_reports.html', sessions=sessions)
+    attempts = (ExamAttempt.query
+                .join(ExamSession, ExamAttempt.session_id == ExamSession.id)
+                .join(Exam, ExamSession.exam_id == Exam.id)
+                .filter(Exam.instructor_id == current_user.id)
+                .order_by(ExamAttempt.completed_at.desc())
+                .all())
+    rows = []
+    for att in attempts:
+        exam = att.session.exam
+        rows.append({
+            'attempt': att,
+            'student_name': att.student.full_name if att.student else 'Invitado',
+            'exam_title': exam.title,
+            'class_names': ", ".join(c.name for c in exam.classes) if exam.classes else "Sin clase",
+            'session_code': att.session.session_code,
+        })
+    return render_template('exam_reports.html', rows=rows)
 
 @exams_bp.route('/instructor/session/<int:session_id>/report')
 @login_required
@@ -985,6 +1093,168 @@ def duplicate_exam(exam_id):
     db.session.commit()
     flash('Examen duplicado.', 'success')
     return redirect(url_for('exams.library'))
+
+def _question_to_row_dict(q):
+    """Convierte una Question a un dict con las mismas claves que la plantilla
+    de Excel (statement, options, pairs, items...), para reusarlo en el JSON."""
+    row = {
+        'statement': q.statement,
+        'question_type': q.question_type,
+        'category': q.category or 'General',
+        'feedback_text': q.feedback_text or '',
+        'image_url': q.image_url or '',
+        'video_url': q.video_url or '',
+        'options': '',
+        'correct_option': '',
+        'pairs': '',
+        'items': '',
+    }
+    if q.question_type in ['multiple_choice', 'true_false', 'video']:
+        opts = list(q.options)
+        row['options'] = '|'.join(o.option_text for o in opts)
+        correct_idx = next((i for i, o in enumerate(opts) if o.is_correct), 0)
+        row['correct_option'] = correct_idx
+    elif q.question_type == 'matching':
+        row['pairs'] = '|'.join(f"{p.left_text}:{p.right_text}" for p in q.matching_pairs)
+    elif q.question_type == 'ordering':
+        ordered = sorted(q.order_items, key=lambda x: x.correct_position)
+        row['items'] = '|'.join(i.item_text for i in ordered)
+    return row
+
+
+def _create_question_from_row_dict(bank_id, row):
+    """Inverso de _question_to_row_dict: crea la Question (con sus opciones,
+    pares u orden) a partir de un dict con esas mismas claves."""
+    statement = str(row.get('statement') or '').strip()
+    if not statement:
+        return None
+
+    q_type = str(row.get('question_type') or 'multiple_choice').strip().lower()
+    question = Question(
+        bank_id=bank_id,
+        question_type=q_type,
+        statement=statement,
+        category=str(row.get('category') or 'General').strip(),
+        feedback_text=row.get('feedback_text') or None,
+        image_url=row.get('image_url') or None,
+        video_url=row.get('video_url') or None,
+    )
+    db.session.add(question)
+    db.session.flush()
+
+    if q_type in ['multiple_choice', 'true_false', 'video']:
+        options_list = [opt.strip() for opt in str(row.get('options') or '').split('|') if opt.strip()]
+        correct_idx = int(row.get('correct_option') or 0)
+        for idx, opt_text in enumerate(options_list):
+            db.session.add(QuestionOption(question_id=question.id, option_text=opt_text, is_correct=(idx == correct_idx)))
+    elif q_type == 'matching':
+        for p in str(row.get('pairs') or '').split('|'):
+            if ':' in p:
+                left, right = p.split(':', 1)
+                db.session.add(QuestionMatching(question_id=question.id, left_text=left.strip(), right_text=right.strip()))
+    elif q_type == 'ordering':
+        items = [it.strip() for it in str(row.get('items') or '').split('|') if it.strip()]
+        for idx, item_text in enumerate(items, start=1):
+            db.session.add(QuestionOrder(question_id=question.id, item_text=item_text, correct_position=idx))
+
+    return question
+
+
+@exams_bp.route('/instructor/exam/<int:exam_id>/export-json')
+@login_required
+def export_exam_json(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    if exam.instructor_id != current_user.id and current_user.role not in ['superuser', 'admin']:
+        return 'Acceso denegado', 403
+
+    questions = []
+    for eq in exam.questions:
+        if not eq.question:
+            continue
+        row = _question_to_row_dict(eq.question)
+        row['points'] = eq.points
+        questions.append(row)
+
+    data = {
+        'version': '1.0',
+        'exam': {
+            'title': exam.title,
+            'instructions': exam.instructions or '',
+            'duration_minutes': exam.duration_minutes,
+            'passing_score': exam.passing_score,
+            'exam_mode': exam.exam_mode,
+            'allow_multiple_attempts': exam.allow_multiple_attempts,
+            'max_attempts': exam.max_attempts,
+        },
+        'questions': questions,
+    }
+    output = BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8'))
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"examen_{secure_filename(exam.title)}.json",
+        mimetype='application/json'
+    )
+
+
+@exams_bp.route('/instructor/exam/import-json', methods=['POST'])
+@login_required
+def import_exam_json():
+    if current_user.role != 'instructor':
+        return 'Acceso denegado', 403
+
+    if 'json_file' not in request.files or request.files['json_file'].filename == '':
+        flash('No se subió ningún archivo.', 'danger')
+        return redirect(url_for('exams.library'))
+
+    file = request.files['json_file']
+    try:
+        data = json.load(file)
+        exam_data = data.get('exam', {})
+        questions_data = data.get('questions', [])
+
+        bank = Bank(
+            name=f"Importado: {exam_data.get('title', 'Examen')}"[:120],
+            description='Banco creado automáticamente al importar un examen desde JSON.',
+            created_by=current_user.id,
+        )
+        db.session.add(bank)
+        db.session.flush()
+
+        exam = Exam(
+            title=exam_data.get('title') or 'Examen importado',
+            instructions=exam_data.get('instructions') or '',
+            duration_minutes=exam_data.get('duration_minutes') or 30,
+            passing_score=exam_data.get('passing_score') or 60.0,
+            exam_mode=exam_data.get('exam_mode') or 'instant_feedback',
+            allow_multiple_attempts=bool(exam_data.get('allow_multiple_attempts')),
+            max_attempts=exam_data.get('max_attempts') or 1,
+            instructor_id=current_user.id,
+        )
+        db.session.add(exam)
+        db.session.flush()
+
+        imported_count = 0
+        for idx, row in enumerate(questions_data, start=1):
+            question = _create_question_from_row_dict(bank.id, row)
+            if not question:
+                continue
+            db.session.add(ExamQuestion(
+                exam_id=exam.id,
+                question_id=question.id,
+                points=float(row.get('points') or 1.0),
+                order_index=idx,
+            ))
+            imported_count += 1
+
+        db.session.commit()
+        flash(f'Examen "{exam.title}" importado con {imported_count} preguntas.', 'success')
+        return redirect(url_for('exams.edit_exam_builder', exam_id=exam.id))
+    except Exception as e:
+        db.session.rollback()
+        flash(f'No se pudo importar el archivo: {str(e)}', 'danger')
+        return redirect(url_for('exams.library'))
+
 
 @exams_bp.route('/instructor/exam/<int:exam_id>/delete', methods=['POST'])
 @login_required

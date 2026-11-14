@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Mis exámenes{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <h4 class="mb-3">Mis exámenes</h4>
+
+        {% if not attempts %}
+        <div class="alert alert-light border text-center py-5">
+            <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
+            Todavía no has presentado ningún examen.
+        </div>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle bg-white shadow-sm rounded">
+                <thead class="table-light">
+                    <tr>
+                        <th>Examen</th>
+                        <th>Fecha</th>
+                        <th>Intento</th>
+                        <th>Nota</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attempt in attempts %}
+                    <tr>
+                        <td>{{ attempt.session.exam.title }}</td>
+                        <td>{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') if attempt.completed_at else '-' }}</td>
+                        <td>#{{ attempt.attempt_number }}</td>
+                        <td class="fw-bold">{{ attempt.score }}%</td>
+                        <td>
+                            {% if attempt.status == 'pending_review' %}
+                                <span class="badge bg-info-subtle text-info"><i class="bi bi-hourglass-split me-1"></i>Pendiente revisión</span>
+                            {% elif attempt.score >= (attempt.session.exam.passing_score or 60) %}
+                                <span class="badge bg-success-subtle text-success">Aprobado</span>
+                            {% else %}
+                                <span class="badge bg-danger-subtle text-danger">Reprobado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('exams.resultados', attempt_id=attempt.id) }}" class="btn btn-sm btn-outline-primary">
+                                Ver detalle
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

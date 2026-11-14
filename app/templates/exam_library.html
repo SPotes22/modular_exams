@@ -153,6 +153,39 @@
           {% endfor %}
         </div>
         
+        <!-- Import Exam JSON Modal -->
+        <div class="modal fade" id="importExamJsonModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-lg);">
+              <form method="post" action="{{ url_for('exams.import_exam_json') }}" enctype="multipart/form-data">
+                <div class="modal-header bg-light">
+                  <h5 class="modal-title fw-bold">
+                      <i class="bi bi-filetype-json text-primary me-2"></i>
+                      Importar examen desde JSON
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Archivo JSON</label>
+                    <input type="file" name="json_file" accept=".json" class="form-control" required>
+                  </div>
+                  <div class="alert alert-light border small text-muted mb-0">
+                    <i class="bi bi-info-circle text-primary me-1"></i>
+                    Crea un examen nuevo (con un banco de preguntas propio) a partir de un archivo
+                    exportado con "Respaldo JSON" desde cualquier examen. Útil para no perder el
+                    examen si se borra la base de datos: solo vuelves a subir el archivo.
+                  </div>
+                </div>
+                <div class="modal-footer bg-light">
+                  <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                  <button type="submit" class="btn btn-primary rounded-pill px-4">Importar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
         <!-- Create Class Folder Modal -->
         <div class="modal fade" id="createClassModal" tabindex="-1" aria-labelledby="createClassModalLabel" aria-hidden="true">
           <div class="modal-dialog">
@@ -238,13 +271,19 @@
             </div>
 
             <!-- Botones Principales -->
-        	<a class="btn btn-primary rounded-pill px-3 shadow-sm fw-semibold d-inline-flex align-items-center" 
+        	<a class="btn btn-primary rounded-pill px-3 shadow-sm fw-semibold d-inline-flex align-items-center"
                href="{{ url_for('exams.new_exam_builder') }}">
                 <i class="bi bi-plus-lg me-1"></i>
                 Crear examen
             </a>
-            <button class="btn btn-outline-primary rounded-pill px-3 shadow-sm fw-semibold d-inline-flex align-items-center" 
-                  data-bs-toggle="modal" 
+            <button class="btn btn-outline-primary rounded-pill px-3 shadow-sm fw-semibold d-inline-flex align-items-center"
+                  data-bs-toggle="modal"
+                  data-bs-target="#importExamJsonModal">
+                <i class="bi bi-filetype-json me-1"></i>
+                Importar JSON
+            </button>
+            <button class="btn btn-outline-primary rounded-pill px-3 shadow-sm fw-semibold d-inline-flex align-items-center"
+                  data-bs-toggle="modal"
                   data-bs-target="#createClassModal">
                 <i class="bi bi-folder-plus me-1"></i>
                 Nueva Carpeta
@@ -329,9 +368,16 @@
                                                 </a>
                                             </li>
                                             <li>
-                                                <a class="dropdown-item small" 
+                                                <a class="dropdown-item small"
                                                    href="{{ url_for('exams.export_exam_document', exam_id=exam.id, answers='with-answers') }}">
                                                     <i class="bi bi-file-earmark-check me-2 text-success"></i>Con respuestas (Plantilla clave)
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item small"
+                                                   href="{{ url_for('exams.export_exam_json', exam_id=exam.id) }}">
+                                                    <i class="bi bi-filetype-json me-2 text-primary"></i>Respaldo JSON (para reimportar)
                                                 </a>
                                             </li>
                                         </ul>

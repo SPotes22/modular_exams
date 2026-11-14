@@ -97,6 +97,10 @@ def register():
             flash('Las contraseñas no coinciden.', 'warning')
             return render_template('register.html', form_data=request.form)
 
+        if not request.form.get('accept_terms'):
+            flash('Debes aceptar los términos y condiciones para crear tu cuenta.', 'warning')
+            return render_template('register.html', form_data=request.form)
+
         # Determinar rol (estudiante o profesor/instructor)
         role = 'instructor' if role_raw in ['instructor', 'profesor', 'teacher', 'docente'] else 'student'
 
@@ -116,7 +120,8 @@ def register():
             institution=institution,
             role=role,
             default_exam_view='questions' if role == 'instructor' else 'catalog',
-            trial_started_at=datetime.utcnow() if role == 'instructor' else None
+            trial_started_at=datetime.utcnow() if role == 'instructor' else None,
+            terms_accepted_at=datetime.utcnow()
         )
         new_user.set_password(password)
         db.session.add(new_user)
@@ -149,12 +154,15 @@ def logout():
     logout_user()
     return redirect(url_for('auth.home'))
 
+FINISHED_STATUSES = ['finished', 'FINISHED', 'closed', 'CLOSED']
+
+
 @auth_bp.route('/student/join', methods=['GET', 'POST'])
 def student_join_exam():
     if request.method == 'POST':
         student_name = request.form.get('student_name', '').strip()
         code = request.form.get('session_code', '').strip().upper()
-        
+
         if not student_name or not code:
             flash('Debes ingresar tu nombre y un código de examen válido.', 'warning')
             return redirect(url_for('auth.student_join_exam'))
@@ -164,9 +172,19 @@ def student_join_exam():
             flash('Código de examen no encontrado.', 'danger')
             return redirect(url_for('auth.student_join_exam'))
 
-        if session_obj.status in ['finished', 'FINISHED', 'closed', 'CLOSED']:
+        if session_obj.status in FINISHED_STATUSES:
             flash('Esta sala ya finalizó.', 'danger')
             return redirect(url_for('auth.student_join_exam'))
+
+        # Si ya está metido en OTRO examen que sigue activo, no lo dejamos
+        # saltar de sala: primero debe terminar ese o que el profesor lo cierre.
+        if current_user.is_authenticated and current_user.active_session_id and current_user.active_session_id != session_obj.id:
+            active_session = ExamSession.query.get(current_user.active_session_id)
+            if active_session and active_session.status not in FINISHED_STATUSES:
+                flash(
+                    f'Ya estás en el examen "{active_session.exam.title}" (sala {active_session.session_code}). '
+                    'Termínalo antes de unirte a otra sala.', 'warning')
+                return redirect(url_for('exams.presentar_examen', session_id=active_session.id))
 
         rt_session = session_manager.sessions.get(normalize_room_code(session_obj.session_code))
         connected = sum(1 for st in rt_session.students.values() if st.connected) if rt_session else 0
@@ -175,10 +193,17 @@ def student_join_exam():
             flash(full_reason, 'danger')
             return redirect(url_for('auth.student_join_exam'))
 
-        user = User(username=student_name, role='student')
-        db.session.add(user)
+        # Reconexión a la misma sala: reutiliza el usuario invitado existente
+        # en vez de crear uno nuevo y perder su progreso guardado.
+        reconnecting = current_user.is_authenticated and current_user.active_session_id == session_obj.id
+        if not reconnecting:
+            user = User(username=student_name, role='student')
+            db.session.add(user)
+            db.session.commit()
+            login_user(user)
+
+        current_user.active_session_id = session_obj.id
         db.session.commit()
-        login_user(user)
 
         return redirect(url_for('exams.presentar_examen', session_id=session_obj.id))
 

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Calificar respuestas abiertas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-9">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <a href="{{ url_for('exams.session_report', session_id=attempt.session_id) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h4 class="mb-0">Calificar respuestas abiertas</h4>
+        </div>
+        <p class="text-muted mb-4">
+            Estudiante: <strong>{{ attempt.student.username }}</strong> ·
+            Examen: <strong>{{ attempt.session.exam.title }}</strong> ·
+            Nota actual (sin estas preguntas): <strong>{{ attempt.score }}%</strong>
+        </p>
+
+        {% if not open_answers %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill me-1"></i> No hay respuestas abiertas pendientes en este intento.
+            </div>
+        {% else %}
+        <form method="POST">
+            {% for ans in open_answers %}
+            <div class="card mb-3 border-start border-4 border-info">
+                <div class="card-body">
+                    <p class="fw-semibold mb-2">{{ ans.display_statement }}</p>
+                    <div class="p-2 rounded mb-3 bg-light border">
+                        <small class="text-muted d-block">Respuesta del estudiante:</small>
+                        <span>{{ ans.answer_text or 'Sin respuesta' }}</span>
+                    </div>
+                    <div class="row align-items-center g-2">
+                        <div class="col-auto">
+                            <label class="form-label mb-0 small">Puntaje (máximo {{ ans.max_points }})</label>
+                        </div>
+                        <div class="col-auto">
+                            <input type="number" step="0.1" min="0" max="{{ ans.max_points }}"
+                                   name="points_{{ ans.id }}"
+                                   value="{{ ans.points_awarded if ans.points_awarded else '' }}"
+                                   class="form-control form-control-sm" style="width: 110px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-1"></i> Guardar calificación
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

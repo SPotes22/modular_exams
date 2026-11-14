@@ -236,7 +236,11 @@
 
                                     <!-- Status -->
                                     <td>
-                                        {% if row.is_passed %}
+                                        {% if row.attempt.status == 'pending_review' %}
+                                            <span class="badge bg-info-subtle text-info px-2 py-1 rounded-pill">
+                                                <i class="bi bi-hourglass-split me-1"></i>Pendiente revisión
+                                            </span>
+                                        {% elif row.is_passed %}
                                             <span class="badge bg-success-subtle text-success px-2 py-1 rounded-pill">
                                                 <i class="bi bi-check-circle-fill me-1"></i>Aprobado
                                             </span>
@@ -282,10 +286,18 @@
 
                                     <!-- Single Action -->
                                     <td class="no-print">
-                                        <a href="{{ url_for('exams.download_attempt_results_excel', attempt_id=row.attempt.id) }}" 
-                                           class="btn btn-sm btn-outline-success py-1 px-2" title="Descargar Excel de este alumno">
-                                            <i class="bi bi-file-earmark-excel"></i>
-                                        </a>
+                                        <div class="d-flex gap-1">
+                                            {% if row.attempt.status == 'pending_review' %}
+                                            <a href="{{ url_for('exams.grade_open_answers', attempt_id=row.attempt.id) }}"
+                                               class="btn btn-sm btn-info py-1 px-2" title="Calificar respuestas abiertas">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                            {% endif %}
+                                            <a href="{{ url_for('exams.download_attempt_results_excel', attempt_id=row.attempt.id) }}"
+                                               class="btn btn-sm btn-outline-success py-1 px-2" title="Descargar Excel de este alumno">
+                                                <i class="bi bi-file-earmark-excel"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% else %}

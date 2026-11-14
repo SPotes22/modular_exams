@@ -2,7 +2,7 @@
 from flask import Flask
 from sqlalchemy import inspect
 from app.config import Config
-from app.extensions import db, login_manager, socketio
+from app.extensions import db, login_manager, socketio, csrf
 
 def _add_column_if_missing(conn, table_columns, table_name, column_name, ddl):
     if column_name not in table_columns:
@@ -42,6 +42,7 @@ def ensure_schema():
         _add_column_if_missing(conn, attempt_columns, 'exam_attempts', 'attempt_number', 'INTEGER DEFAULT 1')
         _add_column_if_missing(conn, attempt_columns, 'exam_attempts', 'earned_points', 'FLOAT DEFAULT 0')
         _add_column_if_missing(conn, attempt_columns, 'exam_attempts', 'max_points', 'FLOAT DEFAULT 0')
+        _add_column_if_missing(conn, attempt_columns, 'exam_attempts', 'pending_points', 'FLOAT DEFAULT 0')
         _add_column_if_missing(conn, answer_columns, 'student_answers', 'answer_text', 'TEXT')
         _add_column_if_missing(conn, answer_columns, 'student_answers', 'points_awarded', 'FLOAT DEFAULT 0')
         _add_column_if_missing(conn, answer_columns, 'student_answers', 'question_snapshot_id', 'INTEGER')
@@ -57,6 +58,8 @@ def ensure_schema():
         _add_column_if_missing(conn, user_columns, 'users', 'trial_started_at', 'DATETIME')
         _add_column_if_missing(conn, user_columns, 'users', 'plan_expires_at', 'DATETIME')
         _add_column_if_missing(conn, user_columns, 'users', 'wallet_address', 'VARCHAR(64)')
+        _add_column_if_missing(conn, user_columns, 'users', 'active_session_id', 'INTEGER')
+        _add_column_if_missing(conn, user_columns, 'users', 'terms_accepted_at', 'DATETIME')
         _add_column_if_missing(conn, learning_columns, 'learnings', 'source_session_id', 'INTEGER')
 
 def init_db():
@@ -140,6 +143,7 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     socketio.init_app(app)
+    csrf.init_app(app)
 
     with app.app_context():
         init_db()

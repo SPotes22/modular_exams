@@ -55,7 +55,8 @@ def test_register_student_success(app_ctx):
         'password_confirm': 'password123',
         'phone': '+57 310 999 8888',
         'institution': 'Instituto Técnico Central',
-        'role': 'student'
+        'role': 'student',
+        'accept_terms': '1'
     }
     res_post = client.post('/register', data=payload, follow_redirects=True)
     assert res_post.status_code == 200
@@ -85,7 +86,8 @@ def test_register_instructor_success(app_ctx):
         'password_confirm': 'password123',
         'phone': '3001234567',
         'institution': 'Colegio Mayor',
-        'role': 'instructor'
+        'role': 'instructor',
+        'accept_terms': '1'
     }
     res_post = client.post('/register', data=payload, follow_redirects=True)
     assert res_post.status_code == 200
@@ -117,7 +119,8 @@ def test_register_two_instructors_each_get_their_own_default_bank(app_ctx):
             'email': email,
             'password': 'password123',
             'password_confirm': 'password123',
-            'role': 'instructor'
+            'role': 'instructor',
+            'accept_terms': '1'
         }
         res = client.post('/register', data=payload, follow_redirects=True)
         assert res.status_code == 200
@@ -142,7 +145,8 @@ def test_register_validation_duplicate_email_and_password_mismatch(app_ctx):
         'email': 'teacher@example.com', # already exists
         'password': 'password123',
         'password_confirm': 'password123',
-        'role': 'instructor'
+        'role': 'instructor',
+        'accept_terms': '1'
     }
     res_dup = client.post('/register', data=payload_dup, follow_redirects=True)
     assert res_dup.status_code == 200

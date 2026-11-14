@@ -23,6 +23,15 @@
             </div>
         </div>
 
+        {% if attempt.status == 'pending_review' %}
+        <div class="alert alert-info d-flex align-items-center gap-2">
+            <i class="bi bi-hourglass-split fs-5"></i>
+            <div>
+                <strong>Nota provisional.</strong> Este examen tiene preguntas de respuesta abierta que tu profesor aún no ha revisado; la nota final puede cambiar cuando las califique.
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Desglose de Respuestas y Retroalimentación -->
         <h4 class="mb-3">Desglose de Preguntas</h4>
         {% for ans in answers %}

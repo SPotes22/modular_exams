@@ -1,5 +1,6 @@
+from io import BytesIO
 import pandas as pd
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, send_file
 from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import Bank, Question, QuestionOption, QuestionMatching, QuestionOrder
@@ -140,6 +141,48 @@ def bulk_delete_questions():
     return redirect(url_for('questions.mis_preguntas'))
 
 
+@questions_bp.route('/instructor/question/import-template')
+@login_required
+def download_import_template():
+    """Plantilla vacía con las columnas que espera el importador, para que
+    nadie tenga que adivinar el formato de memoria."""
+    example_rows = [
+        {
+            'statement': '¿Cuál es la capital de Colombia?',
+            'question_type': 'multiple_choice',
+            'category': 'Geografía',
+            'feedback_text': 'Bogotá es la capital desde 1538.',
+            'image_url': '',
+            'video_url': '',
+            'options': 'Bogotá|Medellín|Cali',
+            'correct_option': 0,
+            'pairs': '',
+            'items': '',
+        },
+        {
+            'statement': 'Ordena los pasos del método científico',
+            'question_type': 'ordering',
+            'category': 'Ciencia',
+            'feedback_text': '',
+            'image_url': '',
+            'video_url': '',
+            'options': '',
+            'correct_option': '',
+            'pairs': '',
+            'items': 'Observar|Hipótesis|Experimentar|Concluir',
+        },
+    ]
+    output = BytesIO()
+    pd.DataFrame(example_rows).to_excel(output, index=False, sheet_name='Preguntas')
+    output.seek(0)
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name='plantilla_preguntas.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+
 @questions_bp.route('/instructor/question/import-excel', methods=['POST'])
 @login_required
 def import_questions_excel():
@@ -175,11 +218,20 @@ def import_questions_excel():
             flash('Formato no soportado. Debe ser un archivo .xlsx, .xls o .csv', 'danger')
             return redirect(url_for('questions.mis_preguntas'))
 
+        if 'statement' not in df.columns:
+            flash(
+                'El archivo no tiene la columna "statement" (el enunciado de la pregunta). '
+                'Descarga la plantilla de ejemplo y revisa que los encabezados coincidan exactamente.',
+                'danger')
+            return redirect(url_for('questions.mis_preguntas'))
+
         imported_count = 0
+        skipped_rows = 0
 
         for _, row in df.iterrows():
             statement = str(row.get('statement', '')).strip()
             if not statement or pd.isna(row.get('statement')):
+                skipped_rows += 1
                 continue
 
             q_type = str(row.get('question_type', 'multiple_choice')).strip().lower()
@@ -243,11 +295,22 @@ def import_questions_excel():
             imported_count += 1
 
         db.session.commit()
-        flash(f'¡Se importaron {imported_count} preguntas exitosamente desde el Excel!', 'success')
+        if imported_count == 0:
+            flash(
+                'No se importó ninguna pregunta: ninguna fila tenía un "statement" válido. '
+                'Revisa que el archivo tenga el mismo formato que la plantilla de ejemplo.',
+                'warning')
+        else:
+            msg = f'¡Se importaron {imported_count} preguntas exitosamente desde el Excel!'
+            if skipped_rows:
+                msg += f' ({skipped_rows} fila(s) se saltaron por no tener enunciado.)'
+            flash(msg, 'success')
 
     except Exception as e:
         db.session.rollback()
-        flash(f'Error al procesar el archivo Excel: {str(e)}', 'danger')
+        flash(
+            f'El archivo no se pudo procesar (¿las columnas coinciden con la plantilla?). Detalle: {str(e)}',
+            'danger')
 
     return redirect(url_for('questions.mis_preguntas'))
 

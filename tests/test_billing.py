@@ -19,7 +19,7 @@ TX_HASH = '0x' + '12' * 32
 def app_ctx(tmp_path):
     Config.SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path/'test_billing.db'}"
     app = create_app()
-    app.config.update(TESTING=True, AVAX_MERCHANT_ADDRESS=MERCHANT)
+    app.config.update(TESTING=True, AVAX_MERCHANT_ADDRESS=MERCHANT, WTF_CSRF_ENABLED=False)
     with app.app_context():
         db.drop_all()
         db.create_all()

@@ -26,6 +26,11 @@ class User(UserMixin, db.Model):
     trial_started_at = db.Column(db.DateTime, nullable=True)
     plan_expires_at = db.Column(db.DateTime, nullable=True)
     wallet_address = db.Column(db.String(64), nullable=True)
+    # Sala/examen en el que el estudiante está activo ahora mismo. Mientras
+    # esté puesto y esa sesión siga corriendo, no puede unirse a otra sala
+    # con un código distinto (ver student_join_exam / presentar_examen).
+    active_session_id = db.Column(db.Integer, db.ForeignKey('exam_sessions.id'), nullable=True)
+    terms_accepted_at = db.Column(db.DateTime, nullable=True)
 
     @property
     def full_name(self):
@@ -220,6 +225,7 @@ class ExamAttempt(db.Model):
     score = db.Column(db.Float, default=0.0)
     earned_points = db.Column(db.Float, default=0.0)
     max_points = db.Column(db.Float, default=0.0)
+    pending_points = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(20), default='completed')
     completed_at = db.Column(db.DateTime, default=datetime.utcnow)
     student = db.relationship('User')
@@ -237,7 +243,10 @@ class StudentAnswer(db.Model):
     selected_option_text = db.Column(db.Text, nullable=True)
     correct_answer_text = db.Column(db.Text, nullable=True)
     answer_text = db.Column(db.Text, nullable=True)
-    is_correct = db.Column(db.Boolean, default=False)
+    # Sin default: una respuesta abierta sin calificar debe quedar en NULL
+    # (no False), porque submit_exam distingue "pendiente de revisión"
+    # (is_correct is None) de "incorrecta" (is_correct is False).
+    is_correct = db.Column(db.Boolean, nullable=True)
     points_awarded = db.Column(db.Float, default=0.0)
     question = db.relationship('Question')
     selected_option = db.relationship('QuestionOption')
