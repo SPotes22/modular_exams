@@ -1,7 +1,7 @@
 from flask import request
 from flask_login import current_user
 from flask_socketio import emit, join_room
-from app.extensions import db, socketio
+from app.extensions import db, db_write_lock, socketio
 from app.models import ExamSession as DbExamSession, LiveAnswer
 from app.modes import registry
 from app.realtime import events
@@ -121,8 +121,9 @@ def handle_start_exam_session(data):
     if not db_session:
         emit(events.ERROR, {'message': 'Sesión no encontrada'})
         return
-    db_session.status = 'in_progress'
-    db.session.commit()
+    with db_write_lock:
+        db_session.status = 'in_progress'
+        db.session.commit()
     session = session_manager.get_or_create_by_db_session(db_session)
     session.status = 'in_progress'
     print(f"[START] Profesor inició {session.room_code}")
@@ -142,8 +143,9 @@ def handle_pause_exam(data):
     session.status = 'PAUSED'
     db_session = DbExamSession.query.filter_by(session_code=room_code).first()
     if db_session:
-        db_session.status = 'PAUSED'
-        db.session.commit()
+        with db_write_lock:
+            db_session.status = 'PAUSED'
+            db.session.commit()
     socketio.emit('exam_paused', {'room_code': room_code}, to=socket_room(room_code))
     print(f"[PAUSE] {room_code}")
 
@@ -159,8 +161,9 @@ def handle_resume_exam(data):
     session.status = 'in_progress'
     db_session = DbExamSession.query.filter_by(session_code=room_code).first()
     if db_session:
-        db_session.status = 'in_progress'
-        db.session.commit()
+        with db_write_lock:
+            db_session.status = 'in_progress'
+            db.session.commit()
     socketio.emit('exam_resumed', {'room_code': room_code}, to=socket_room(room_code))
     print(f"[RESUME] {room_code}")
 
@@ -187,25 +190,29 @@ def handle_answer_submitted(data):
     answer = data.get('answer') or {}
 
     # ── Persistir LiveAnswer (upsert) ────────────────────────────────────────
+    # El lock serializa este bloque: si varios alumnos responden al mismo
+    # tiempo, cada escritura espera su turno (FIFO) en vez de competir por
+    # el archivo SQLite y fallar con "database is locked".
     try:
-        db_session = DbExamSession.query.filter_by(session_code=room_code).first()
-        if db_session:
-            existing = LiveAnswer.query.filter_by(
-                session_id=db_session.id,
-                student_id=int(student_id),
-                question_id=question_id,
-            ).first()
-            if existing:
-                existing.answer_json = answer
-                existing.answered_at = db.func.now()
-            else:
-                db.session.add(LiveAnswer(
+        with db_write_lock:
+            db_session = DbExamSession.query.filter_by(session_code=room_code).first()
+            if db_session:
+                existing = LiveAnswer.query.filter_by(
                     session_id=db_session.id,
                     student_id=int(student_id),
                     question_id=question_id,
-                    answer_json=answer,
-                ))
-            db.session.commit()
+                ).first()
+                if existing:
+                    existing.answer_json = answer
+                    existing.answered_at = db.func.now()
+                else:
+                    db.session.add(LiveAnswer(
+                        session_id=db_session.id,
+                        student_id=int(student_id),
+                        question_id=question_id,
+                        answer_json=answer,
+                    ))
+                db.session.commit()
     except Exception as e:
         db.session.rollback()
         print(f"[WARN] LiveAnswer upsert: {e}")
