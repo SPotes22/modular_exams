@@ -64,24 +64,12 @@ function selectLesson(lessonId, btnElement) {
 }
 
 function loadLessonBlocks(lessonId) {
-    // Buscar bloques de la lección seleccionada
-    fetch(`/learning/student/view/${window.LEARNING_ID}`)
-    .then(r => r.text())
-    .then(() => {
-        // Obtenemos bloques via fetch de actualización o extracción
-        fetchBlocksFromBackend(lessonId);
-    });
-}
-
-function fetchBlocksFromBackend(lessonId) {
-    // Si no hay endpoint JSON directo de lección, podemos consultar la lista de bloques
-    fetch(`/learning/instructor/builder/${window.LEARNING_ID}`)
-    .then(() => {
-        // render initial empty or current blocks
-        if (!window.LESSON_BLOCKS_MAP) window.LESSON_BLOCKS_MAP = {};
-        currentBlocks = window.LESSON_BLOCKS_MAP[lessonId] || [];
-        renderBlocks();
-    });
+    // Los bloques de todas las lecciones ya vienen cargados desde el HTML
+    // inicial (window.LESSON_BLOCKS_MAP) — no hace falta pedirle nada al
+    // servidor solo para cambiar de lección.
+    if (!window.LESSON_BLOCKS_MAP) window.LESSON_BLOCKS_MAP = {};
+    currentBlocks = window.LESSON_BLOCKS_MAP[lessonId] || [];
+    renderBlocks();
 }
 
 function renderBlocks() {

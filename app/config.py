@@ -23,6 +23,10 @@ class Config:
     SUPERUSER_PASSWORD = os.environ.get('SUPERUSER_PASSWORD', 'admin1234')
     SUPERUSER_USERNAME = os.environ.get('SUPERUSER_USERNAME', 'SuperAdmin')
 
+    # Límite de tamaño de cualquier request (subida de JSON, Excel, media, etc.).
+    # Sin esto Flask no rechaza nada y una subida enorme se lee entera en memoria.
+    MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
+
     # Suscripciones pagadas con AVAX en la testnet Fuji (Core wallet)
     AVAX_RPC_URL = os.environ.get('AVAX_RPC_URL', 'https://api.avax-test.network/ext/bc/C/rpc')
     AVAX_CHAIN_ID = int(os.environ.get('AVAX_CHAIN_ID', '43113'))

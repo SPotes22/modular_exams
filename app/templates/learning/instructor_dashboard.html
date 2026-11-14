@@ -44,9 +44,13 @@
                         </p>
 
                         <div class="border-top pt-3 mt-2">
-                            <div class="d-flex justify-content-between align-items-center small text-muted mb-3">
+                            <div class="d-flex justify-content-between align-items-center small text-muted mb-2">
                                 <span><i class="bi bi-layers me-1"></i>{{ learning.modules|length }} Módulos</span>
                                 <span><i class="bi bi-calendar3 me-1"></i>{{ learning.fecha_actualizacion.strftime('%Y-%m-%d') }}</span>
+                            </div>
+                            <div class="small text-muted mb-3" title="Código para que un estudiante se una por su cuenta">
+                                <i class="bi bi-key me-1"></i>Código:
+                                <span class="badge bg-light text-dark border font-monospace">{{ learning.join_code or '—' }}</span>
                             </div>
 
                             <div class="d-grid gap-2">

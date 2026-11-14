@@ -1,8 +1,30 @@
 # app/services/learning_service.py
 import json
+import random
+import string
 from datetime import datetime
 from app.extensions import db
 from app.models import Learning, LearningModule, Lesson, Block, LearningProgress, BlockAnswer
+
+
+def generate_join_code():
+    """Código corto único para que un estudiante se una a una capacitación
+    por su cuenta, igual que el código de sala de un examen."""
+    for _ in range(20):
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        if not Learning.query.filter_by(join_code=code).first():
+            return code
+    raise RuntimeError('No se pudo generar un código de capacitación único.')
+
+
+def ensure_join_code(learning):
+    """Le pone un código a una capacitación que todavía no tenga uno
+    (cursos creados antes de que existiera esta función)."""
+    if not learning.join_code:
+        learning.join_code = generate_join_code()
+        db.session.commit()
+    return learning.join_code
+
 
 def create_default_learning(autor_id, nombre, descripcion=None, portada=None):
     learning = Learning(
@@ -10,7 +32,8 @@ def create_default_learning(autor_id, nombre, descripcion=None, portada=None):
         descripcion=descripcion or "Capacitación interactiva basada en bloques",
         estado='draft',
         portada=portada,
-        autor_id=autor_id
+        autor_id=autor_id,
+        join_code=generate_join_code(),
     )
     db.session.add(learning)
     db.session.flush()
@@ -59,7 +82,8 @@ def duplicate_learning(learning_id, new_autor_id):
         descripcion=original.descripcion,
         estado='draft',
         portada=original.portada,
-        autor_id=new_autor_id
+        autor_id=new_autor_id,
+        join_code=generate_join_code(),
     )
     db.session.add(new_learning)
     db.session.flush()
@@ -136,17 +160,28 @@ def export_learning_json(learning_id):
     return data
 
 
+MAX_LESSONS_PER_COURSE = 60
+
+
 def import_learning_json(data, autor_id):
     nombre = data.get("nombre", "Capacitación Importada")
     descripcion = data.get("descripcion", "")
     portada = data.get("portada")
+
+    total_lessons = sum(len(mod_data.get("lessons", [])) for mod_data in data.get("modules", []))
+    if total_lessons > MAX_LESSONS_PER_COURSE:
+        raise ValueError(
+            f'El archivo trae {total_lessons} lecciones; el máximo por capacitación es '
+            f'{MAX_LESSONS_PER_COURSE}. Repártelo en varias capacitaciones e impórtalas por separado.'
+        )
 
     learning = Learning(
         nombre=f"{nombre} (Importado)",
         descripcion=descripcion,
         estado='draft',
         portada=portada,
-        autor_id=autor_id
+        autor_id=autor_id,
+        join_code=generate_join_code(),
     )
     db.session.add(learning)
     db.session.flush()

@@ -111,23 +111,7 @@
     window.LEARNING_ID = {{ learning.id }};
     window.CURRENT_USER_ID = {{ current_user.id }};
     window.TRAINING_ALREADY_COMPLETED = {{ 'true' if progress and progress.completed else 'false' }};
-    window.LESSON_BLOCKS_MAP = {
-        {% for module in learning.modules %}
-        {% set module_loop = loop %}
-        {% for lesson in module.lessons %}
-        {{ lesson.id }}: [
-            {% for blk in lesson.blocks %}
-            {
-                "id": {{ blk.id }},
-                "tipo": {{ blk.tipo | tojson }},
-                "visible": {{ blk.visible | tojson }},
-                "configuracion": {{ blk.configuracion | tojson }}
-            }{% if not loop.last %},{% endif %}
-            {% endfor %}
-        ]{% if not (loop.last and module_loop.last) %},{% endif %}
-        {% endfor %}
-        {% endfor %}
-    };
+    window.LESSON_BLOCKS_MAP = {{ blocks_map|tojson }};
     window.INITIAL_LESSON_ID = {% if progress and progress.current_lesson_id %}{{ progress.current_lesson_id }}{% elif learning.modules and learning.modules[0].lessons %}{{ learning.modules[0].lessons[0].id }}{% else %}null{% endif %};
     window.INITIAL_TIME_SPENT = {{ progress.time_spent_seconds if progress else 0 }};
 

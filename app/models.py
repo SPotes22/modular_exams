@@ -319,6 +319,10 @@ class Learning(db.Model):
     # auto-generadas). Permite no duplicar el curso si la generación se dispara
     # más de una vez para la misma sesión.
     source_session_id = db.Column(db.Integer, db.ForeignKey('exam_sessions.id'), nullable=True)
+    # Código corto para que un estudiante se una a esta capacitación por su
+    # cuenta (como el código de sala de un examen), sin tener que esperar a
+    # reprobar un examen para que se le asigne.
+    join_code = db.Column(db.String(10), unique=True, nullable=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

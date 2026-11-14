@@ -61,6 +61,7 @@ def ensure_schema():
         _add_column_if_missing(conn, user_columns, 'users', 'active_session_id', 'INTEGER')
         _add_column_if_missing(conn, user_columns, 'users', 'terms_accepted_at', 'DATETIME')
         _add_column_if_missing(conn, learning_columns, 'learnings', 'source_session_id', 'INTEGER')
+        _add_column_if_missing(conn, learning_columns, 'learnings', 'join_code', 'VARCHAR(10)')
 
 def init_db():
     from app.models import (User, Bank, Question, QuestionOption, Exam, ExamQuestion,

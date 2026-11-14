@@ -74,23 +74,11 @@ function loadStudentLesson(lessonId, btnElement) {
 }
 
 function fetchLessonBlocks(lessonId) {
-    const container = document.getElementById('studentBlocksContainer');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted">Cargando bloques de la lección...</p>
-        </div>
-    `;
-
-    fetch(`/learning/instructor/builder/${window.LEARNING_ID}`)
-    .then(() => {
-        // En un entorno de producción, obtenemos los bloques de la lección seleccionada
-        if (!window.LESSON_BLOCKS_MAP) window.LESSON_BLOCKS_MAP = {};
-        const blocks = window.LESSON_BLOCKS_MAP[lessonId] || [];
-        renderStudentBlocks(blocks);
-    });
+    // Los bloques de todas las lecciones ya vienen cargados desde el HTML
+    // inicial (window.LESSON_BLOCKS_MAP) — no hace falta pedirle nada al
+    // servidor solo para cambiar de lección.
+    if (!window.LESSON_BLOCKS_MAP) window.LESSON_BLOCKS_MAP = {};
+    renderStudentBlocks(window.LESSON_BLOCKS_MAP[lessonId] || []);
 }
 
 function renderStudentBlocks(blocks) {

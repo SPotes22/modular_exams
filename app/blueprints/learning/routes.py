@@ -11,10 +11,34 @@ from app.services import learning_service
 from app.services.remediation_service import RemediationService
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'pdf', 'mp3'}
-MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
+
+# Tope de lecciones por capacitación. Evita que un curso crezca tanto que la
+# página de edición se vuelva pesada de cargar; si alguien necesita más
+# contenido, le toca repartirlo en otra capacitación.
+MAX_LESSONS_PER_COURSE = 60
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _ordered_lessons(learning):
+    """Todas las lecciones del curso, en el orden real (módulo → lección)."""
+    return [les for mod in learning.modules for les in mod.lessons]
+
+
+def _serialize_lesson_blocks(lesson):
+    return [{
+        "id": blk.id,
+        "lesson_id": blk.lesson_id,
+        "tipo": blk.tipo,
+        "orden": blk.orden,
+        "visible": blk.visible,
+        "configuracion": blk.configuracion or {},
+    } for blk in lesson.blocks]
+
+
+def _full_blocks_map(learning):
+    return {les.id: _serialize_lesson_blocks(les) for les in _ordered_lessons(learning)}
 
 # ==========================================
 # VISTAS INSTRUCTOR
@@ -28,6 +52,8 @@ def instructor_dashboard():
         return redirect(url_for('auth.home'))
 
     learnings = Learning.query.filter_by(autor_id=current_user.id).order_by(Learning.fecha_creacion.desc()).all()
+    for learning in learnings:
+        learning_service.ensure_join_code(learning)
     return render_template('learning/instructor_dashboard.html', learnings=learnings)
 
 
@@ -188,19 +214,7 @@ def builder(learning_id):
         flash('Acceso denegado', 'danger')
         return redirect(url_for('learning.instructor_dashboard'))
 
-    blocks_map = {
-        les.id: [{
-            "id": blk.id,
-            "lesson_id": blk.lesson_id,
-            "tipo": blk.tipo,
-            "orden": blk.orden,
-            "visible": blk.visible,
-            "configuracion": blk.configuracion or {}
-        } for blk in les.blocks]
-        for mod in learning.modules for les in mod.lessons
-    }
-
-    return render_template('learning/builder.html', learning=learning, blocks_map=blocks_map)
+    return render_template('learning/builder.html', learning=learning, blocks_map=_full_blocks_map(learning))
 
 
 # ==========================================
@@ -266,6 +280,14 @@ def api_create_lesson():
     titulo = request.form.get('titulo', 'Nueva Lección').strip()
 
     mod = LearningModule.query.get_or_404(module_id)
+
+    total_lessons = len(_ordered_lessons(mod.learning))
+    if total_lessons >= MAX_LESSONS_PER_COURSE:
+        return jsonify({
+            'error': f'Esta capacitación ya tiene {total_lessons} lecciones, el máximo por curso. '
+                     f'Crea otra capacitación para seguir agregando contenido.'
+        }), 400
+
     max_order = db.session.query(db.func.max(Lesson.orden)).filter_by(module_id=module_id).scalar() or 0
 
     new_les = Lesson(
@@ -438,10 +460,39 @@ def api_upload_media():
 @learning_bp.route('/student/catalog')
 @login_required
 def student_catalog():
-    learnings = Learning.query.filter_by(estado='published').order_by(Learning.fecha_creacion.desc()).all()
+    # Solo se ven las capacitaciones a las que el estudiante ya tiene acceso:
+    # porque el profesor se las asignó al reprobar un examen (refuerzo
+    # automático), o porque se unió con un código. Nada de "todo lo publicado".
     user_progresses = {p.learning_id: p for p in LearningProgress.query.filter_by(user_id=current_user.id).all()}
+    learnings = []
+    if user_progresses:
+        learnings = Learning.query.filter(
+            Learning.id.in_(list(user_progresses.keys())),
+            Learning.estado == 'published'
+        ).order_by(Learning.fecha_creacion.desc()).all()
 
     return render_template('learning/student_catalog.html', learnings=learnings, user_progresses=user_progresses)
+
+
+@learning_bp.route('/student/join-course', methods=['GET', 'POST'])
+@login_required
+def student_join_course():
+    if request.method == 'POST':
+        code = request.form.get('code', '').strip().upper()
+        learning = Learning.query.filter_by(join_code=code, estado='published').first() if code else None
+        if not learning:
+            flash('Código no encontrado o la capacitación aún no ha sido publicada.', 'danger')
+            return redirect(url_for('learning.student_join_course'))
+
+        existing = LearningProgress.query.filter_by(user_id=current_user.id, learning_id=learning.id).first()
+        if not existing:
+            db.session.add(LearningProgress(learning_id=learning.id, user_id=current_user.id, completed=False))
+            db.session.commit()
+
+        flash(f'Te uniste a "{learning.nombre}".', 'success')
+        return redirect(url_for('learning.student_view', learning_id=learning.id))
+
+    return render_template('learning/student_join.html')
 
 
 @learning_bp.route('/student/view/<int:learning_id>')
@@ -459,19 +510,8 @@ def student_view(learning_id):
         ans.block_id: ans for ans in BlockAnswer.query.filter_by(user_id=current_user.id).all()
     }
 
-    blocks_map = {
-        les.id: [{
-            "id": blk.id,
-            "lesson_id": blk.lesson_id,
-            "tipo": blk.tipo,
-            "orden": blk.orden,
-            "visible": blk.visible,
-            "configuracion": blk.configuracion or {}
-        } for blk in les.blocks]
-        for mod in learning.modules for les in mod.lessons
-    }
-
-    return render_template('learning/student_view.html', learning=learning, progress=progress, block_answers=block_answers, blocks_map=blocks_map)
+    return render_template('learning/student_view.html', learning=learning, progress=progress,
+                            block_answers=block_answers, blocks_map=_full_blocks_map(learning))
 
 
 
