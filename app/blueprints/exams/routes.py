@@ -565,7 +565,26 @@ def resultados(attempt_id):
     if not is_owner and not is_exam_instructor and current_user.role not in ['superuser', 'admin']:
         return 'Acceso denegado', 403
     answers = StudentAnswer.query.filter_by(attempt_id=attempt.id).all()
-    return render_template('resultados.html', attempt=attempt, answers=answers)
+    return render_template('resultados.html', attempt=attempt, answers=answers, is_exam_instructor=is_exam_instructor)
+
+
+@exams_bp.route('/instructor/attempt/<int:attempt_id>/generar-refuerzo', methods=['POST'])
+@login_required
+def generate_remediation_for_attempt(attempt_id):
+    """Genera (o suma a este estudiante en) la capacitación de refuerzo de
+    la sala, aunque el examen no tenga activada la retroalimentación
+    automática o el estudiante no haya caído bajo el umbral fijo del 40%."""
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    if attempt.session.exam.instructor_id != current_user.id and current_user.role not in ['superuser', 'admin']:
+        return 'Acceso denegado', 403
+
+    from app.services.remediation_service import RemediationService
+    course = RemediationService.build_remediation_course(attempt.session_id, extra_student_ids=[attempt.student_id])
+    if course:
+        flash(f'Capacitación de refuerzo "{course.nombre}" lista (queda en borrador hasta que la publiques).', 'success')
+    else:
+        flash('No se pudo generar la capacitación: no hay preguntas falladas con respuesta para agrupar.', 'warning')
+    return redirect(url_for('exams.resultados', attempt_id=attempt_id))
 
 
 def _open_answer_max_points(attempt, ans):
