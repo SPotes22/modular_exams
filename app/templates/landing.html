@@ -362,7 +362,7 @@
                     <i class="bi bi-grid me-1"></i> Ir a mi panel
                 </a>
                 {% else %}
-                <a href="#" data-bs-toggle="modal" data-bs-target="#leadFormModal" class="btn btn-brand px-4 py-2 rounded-pill shadow-sm fw-bold">
+                <a href="{{ url_for('auth.register') }}" class="btn btn-brand px-4 py-2 rounded-pill shadow-sm fw-bold">
                     <i class="bi bi-person-plus me-1"></i> Probar gratis 14 días
                 </a>
                 {% endif %}
@@ -771,7 +771,7 @@
             capacitaciones — comparte todo con un simple código de sala.
         </p>
         <div class="d-flex flex-wrap justify-content-center gap-2">
-            <a href="#" data-bs-toggle="modal" data-bs-target="#leadFormModal" class="btn btn-light px-4 py-2 rounded-pill fw-bold shadow-sm">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-light px-4 py-2 rounded-pill fw-bold shadow-sm">
                 Probar gratis 14 días
             </a>
             <a href="{{ url_for('auth.pricing') }}" class="btn btn-outline-light px-4 py-2 rounded-pill fw-bold">
@@ -829,7 +829,7 @@
             <div class="lp-footer-heading">Cuenta</div>
             <ul class="lp-footer-links">
                 <li><a href="{{ url_for('auth.login') }}">Iniciar sesión</a></li>
-                <li><a href="#" data-bs-toggle="modal" data-bs-target="#leadFormModal">Crear cuenta</a></li>
+                <li><a href="{{ url_for('auth.register') }}">Crear cuenta</a></li>
                 <li><a href="{{ url_for('auth.student_join_exam') }}">Ingresar con código</a></li>
             </ul>
         </div>

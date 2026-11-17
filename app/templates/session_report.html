@@ -293,6 +293,13 @@
                                                 <i class="bi bi-pencil-square"></i>
                                             </a>
                                             {% endif %}
+                                            {% if not row.is_passed %}
+                                            <form method="POST" action="{{ url_for('exams.generate_remediation_for_attempt', attempt_id=row.attempt.id) }}" class="d-inline">
+                                                <button type="submit" class="btn btn-sm btn-outline-primary py-1 px-2" title="Generar capacitación de refuerzo con lo que falló">
+                                                    <i class="bi bi-magic"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
                                             <a href="{{ url_for('exams.download_attempt_results_excel', attempt_id=row.attempt.id) }}"
                                                class="btn btn-sm btn-outline-success py-1 px-2" title="Descargar Excel de este alumno">
                                                 <i class="bi bi-file-earmark-excel"></i>

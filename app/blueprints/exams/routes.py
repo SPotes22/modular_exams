@@ -584,6 +584,11 @@ def generate_remediation_for_attempt(attempt_id):
         flash(f'Capacitación de refuerzo "{course.nombre}" lista (queda en borrador hasta que la publiques).', 'success')
     else:
         flash('No se pudo generar la capacitación: no hay preguntas falladas con respuesta para agrupar.', 'warning')
+
+    # Si lo dispararon desde la tabla del reporte de sala, vuelve ahí en vez
+    # de mandarlos siempre al detalle de este intento.
+    if request.referrer and '/resultados/' not in request.referrer:
+        return redirect(request.referrer)
     return redirect(url_for('exams.resultados', attempt_id=attempt_id))
 
 
